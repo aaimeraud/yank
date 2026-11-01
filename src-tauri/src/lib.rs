@@ -264,6 +264,39 @@ async fn start_download(
 }
 
 #[tauri::command]
+async fn fetch_playlist_entries(url: String) -> Result<Vec<Metadata>, String> {
+    let ytdlp = find_ytdlp();
+    let output = Command::new(&ytdlp).args(["--flat-playlist", "--dump-json", &url]).output().await.map_err(|e| e.to_string())?;
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).to_string());
+    }
+    let mut entries = Vec::new();
+    for line in String::from_utf8_lossy(&output.stdout).lines() {
+        if line.trim().is_empty() { continue; }
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(line) {
+            entries.push(Metadata {
+                id: v.get("id").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+                title: v.get("title").and_then(|x| x.as_str()).unwrap_or("Unknown").to_string(),
+                uploader: v.get("uploader").and_then(|x| x.as_str()).map(|s| s.to_string()).or_else(|| v.get("channel").and_then(|x| x.as_str()).map(|s| s.to_string())),
+                duration: v.get("duration").and_then(|x| x.as_i64()),
+                thumbnail: v.get("thumbnail").and_then(|x| x.as_str()).map(|s| s.to_string()),
+                extractor: v.get("extractor").and_then(|x| x.as_str()).map(|s| s.to_string()),
+                webpage_url: v.get("url").and_then(|x| x.as_str()).map(|s| s.to_string()).or_else(|| v.get("webpage_url").and_then(|x| x.as_str()).map(|s| s.to_string())),
+            });
+        }
+    }
+    Ok(entries)
+}
+
+#[tauri::command]
+async fn add_playlist(state: tauri::State<'_, DbState>, playlist: Playlist) -> Result<(), String> {
+    sqlx::query("INSERT OR IGNORE INTO playlists (id, title, source, url, thumbnail_path) VALUES (?,?,?,?,?)")
+        .bind(&playlist.id).bind(&playlist.title).bind(&playlist.source).bind(&playlist.url).bind(&playlist.thumbnail_path)
+        .execute(&state.pool).await.map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
 async fn cancel_download(state: tauri::State<'_, DbState>, queue_id: String) -> Result<(), String> {
     sqlx::query("UPDATE queue_items SET status='cancelled' WHERE id=?")
         .bind(&queue_id).execute(&state.pool).await.map_err(|e| e.to_string())?;
@@ -283,7 +316,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_setting, set_setting, list_videos, list_playlists, list_queue, pick_folder,
-            fetch_metadata, add_video, start_download, cancel_download
+            fetch_metadata, add_video, start_download, cancel_download,
+            fetch_playlist_entries, add_playlist
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

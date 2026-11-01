@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import "./App.css";
 
@@ -42,8 +43,11 @@ export default function App() {
   const [view, setView] = useState<View>("library");
   const [videos, setVideos] = useState<Video[]>([]);
   const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [url, setUrl] = useState("");
+  const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [busy, setBusy] = useState(false);
+  const [url, setUrl] = useState("");
   const [settings, setSettings] = useState({ download_dir: null as string | null, default_quality: null as string | null });
 
   const refresh = async () => {
@@ -65,6 +69,18 @@ export default function App() {
     });
     return () => { unlisten.then((f) => f()); };
   }, []);
+
+  const playVideo = (v: Video) => {
+    if (!v.file_path) return;
+    setCurrentVideo(v);
+    setPlaying(true);
+  };
+
+  const togglePlay = () => {
+    const el = videoRef.current;
+    if (!el) return;
+    if (el.paused) { el.play(); setPlaying(true); } else { el.pause(); setPlaying(false); }
+  };
 
   const download = async () => {
     if (!url.trim() || busy) return;
@@ -119,10 +135,10 @@ export default function App() {
             {videos.length === 0 ? <p className="empty">No videos yet.</p> : (
               <div className="grid">
                 {videos.map((v) => (
-                  <div key={v.id} className="card">
+                  <div key={v.id} className="card" onClick={() => playVideo(v)} style={{ cursor: v.file_path ? "pointer" : "default" }}>
                     <div className="thumb">{v.source}</div>
                     <div className="title">{v.title}</div>
-                    <div className="meta">{v.uploader ?? "Unknown"}</div>
+                    <div className="meta">{v.uploader ?? "Unknown"}{v.watched ? " • watched" : ""}</div>
                   </div>
                 ))}
               </div>
@@ -160,6 +176,15 @@ export default function App() {
           </section>
         )}
       </main>
+      {currentVideo && currentVideo.file_path && (
+        <div className="playerbar">
+          <video ref={videoRef} src={convertFileSrc(currentVideo.file_path)} autoPlay={playing} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} />
+          <div className="playercontrols">
+            <button onClick={togglePlay}>{playing ? "Pause" : "Play"}</button>
+            <span className="playertitle">{currentVideo.title}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

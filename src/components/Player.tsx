@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import type { Video } from "../types";
 
@@ -7,17 +8,81 @@ interface Props { video: Video | null; }
 export default function Player({ video }: Props) {
   const ref = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
-  if (!video || !video.file_path) return null;
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [showResume, setShowResume] = useState(false);
+  const resumedRef = useRef(false);
+
+  useEffect(() => {
+    setProgress(0); setDuration(0); setShowResume(false); resumedRef.current = false;
+    const el = ref.current;
+    if (!el || !video?.file_path) return;
+    const onLoaded = () => {
+      setDuration(el.duration || 0);
+      if (video.last_position > 5 && video.last_position < (el.duration || 0) * 0.9 && !resumedRef.current) {
+        setShowResume(true);
+      }
+    };
+    const onTime = () => {
+      setProgress(el.currentTime);
+      if (video.id && el.currentTime > 0 && Math.floor(el.currentTime) % 5 === 0) {
+        const watched = el.duration > 0 && el.currentTime / el.duration >= 0.9;
+        invoke("update_playback", { videoId: video.id, position: Math.floor(el.currentTime), watched }).catch(() => {});
+      }
+    };
+    el.addEventListener("loadedmetadata", onLoaded);
+    el.addEventListener("timeupdate", onTime);
+    return () => { el.removeEventListener("loadedmetadata", onLoaded); el.removeEventListener("timeupdate", onTime); };
+  }, [video]);
+
+  const resume = () => {
+    const el = ref.current;
+    if (el && video) { el.currentTime = video.last_position; setShowResume(false); resumedRef.current = true; }
+  };
+  const dismissResume = () => { setShowResume(false); resumedRef.current = true; };
+
   const toggle = () => {
     const el = ref.current;
     if (!el) return;
     if (el.paused) { el.play(); setPlaying(true); } else { el.pause(); setPlaying(false); }
   };
+  const seek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const el = ref.current;
+    if (!el) return;
+    el.currentTime = Number(e.target.value);
+    setProgress(el.currentTime);
+  };
+  const onVolume = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const el = ref.current;
+    if (!el) return;
+    el.volume = Number(e.target.value);
+    setVolume(el.volume);
+  };
+  const fullscreen = () => {
+    const el = ref.current;
+    if (!el) return;
+    if (document.fullscreenElement) document.exitFullscreen();
+    else el.requestFullscreen();
+  };
+
+  if (!video || !video.file_path) return null;
   return (
     <div className="playerbar">
+      {showResume && (
+        <div className="resume">
+          Resume at {Math.floor((video.last_position)/60)}:{String(video.last_position % 60).padStart(2,"0")}?
+          <button onClick={resume}>Resume</button>
+          <button onClick={dismissResume}>Start over</button>
+        </div>
+      )}
       <video ref={ref} src={convertFileSrc(video.file_path)} autoPlay onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} />
       <div className="playercontrols">
         <button onClick={toggle}>{playing ? "Pause" : "Play"}</button>
+        <input type="range" min={0} max={duration || 0} step={0.1} value={progress} onChange={seek} />
+        <span className="time">{Math.floor(progress)}/{Math.floor(duration)}</span>
+        <input type="range" min={0} max={1} step={0.01} value={volume} onChange={onVolume} />
+        <button onClick={fullscreen}>Fullscreen</button>
         <span className="playertitle">{video.title}</span>
       </div>
     </div>

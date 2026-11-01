@@ -10,6 +10,7 @@ export interface Video {
   url: string;
   file_path: string | null;
   watched: boolean;
+  last_position: number;
 }
 
 export interface QueueItem {

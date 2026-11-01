@@ -66,4 +66,5 @@ body {
 .playerbar { position: fixed; bottom: 0; left: 200px; right: 0; background: var(--panel); border-top: 1px solid var(--border); padding: 8px 12px; display: flex; flex-direction: column; gap: 6px; }
 .playerbar video { width: 100%; max-height: 240px; border-radius: 6px; background: #000; }
 .playercontrols { display: flex; align-items: center; gap: 10px; }
-.playertitle { font-size: 13px; color: var(--muted); }
+.resume { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }
+.resume button { padding: 4px 8px; border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 4px; cursor: pointer; }

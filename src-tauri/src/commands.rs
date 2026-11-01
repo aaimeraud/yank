@@ -131,3 +131,10 @@ pub async fn start_download(
 pub async fn cancel_download(state: tauri::State<'_, DbState>, queue_id: String) -> Result<(), String> {
     download::cancel_download(&state.pool, queue_id).await
 }
+#[tauri::command]
+pub async fn update_playback(state: tauri::State<'_, DbState>, video_id: String, position: i64, watched: bool) -> Result<(), String> {
+    sqlx::query("UPDATE videos SET last_position=?, watched=? WHERE id=?")
+        .bind(position).bind(if watched {1i64} else {0i64}).bind(&video_id)
+        .execute(&state.pool).await.map_err(|e| e.to_string())?;
+    Ok(())
+}

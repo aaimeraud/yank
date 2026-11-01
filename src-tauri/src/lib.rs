@@ -16,6 +16,7 @@ pub fn run() {
         .setup(|app| {
             let pool = tauri::async_runtime::block_on(db::init_db(app.handle()));
             app.manage(DbState { pool });
+            app.manage(download::DownloadState::new(2));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -26,7 +27,7 @@ pub fn run() {
             commands::list_queue,
             commands::pick_folder,
             commands::fetch_metadata,
-            commands::fetch_playlist_entries,
+            commands::fetch_playlist_info,
             commands::add_video,
             commands::add_playlist,
             commands::start_download,

@@ -48,3 +48,10 @@ pub struct Metadata {
     pub extractor: Option<String>,
     pub webpage_url: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlaylistInfo {
+    pub title: String,
+    pub is_playlist: bool,
+    pub entries: Vec<Metadata>,
+}

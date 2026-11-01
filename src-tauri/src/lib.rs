@@ -16,6 +16,7 @@ pub fn run() {
         .setup(|app| {
             let pool = tauri::async_runtime::block_on(db::init_db(app.handle()));
             tauri::async_runtime::block_on(download::recover_interrupted(&pool)).ok();
+            tauri::async_runtime::block_on(db::reconcile_missing_files(&pool)).ok();
             app.manage(DbState { pool });
             app.manage(download::DownloadState::new(2));
             Ok(())

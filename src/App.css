@@ -203,6 +203,7 @@ body {
 /* ---------- library ---------- */
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: var(--gap); }
 .card {
+  position: relative;
   background: var(--glass);
   border: 1px solid var(--glass-edge-soft);
   border-radius: 16px;
@@ -229,6 +230,21 @@ body {
 .card .thumb.has-img { background: #000; }
 .card .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .card .title { font-weight: 500; font-size: var(--fs-body); color: var(--text); padding: 0 14px; }
+.card-download {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 5px 12px;
+  border: 1px solid var(--glass-edge-soft);
+  border-radius: 999px;
+  background: rgba(10, 10, 16, 0.72);
+  color: var(--text);
+  font-size: var(--fs-small);
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+.card-download:hover { background: rgba(255, 255, 255, 0.92); color: #0a0a10; }
 .card .meta { color: var(--faint); font-size: var(--fs-small); margin-top: 2px; padding: 0 14px 12px; }
 
 /* ---------- queue ---------- */

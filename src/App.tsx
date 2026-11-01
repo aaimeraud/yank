@@ -111,6 +111,21 @@ export default function App() {
     }
   };
 
+  const downloadMissing = async (v: Video) => {
+    const dir = settings.download_dir ?? (await invoke<string | null>("get_setting", { key: "download_dir" })) ?? "";
+    if (!dir) {
+      alert("Pick a downloads folder in Settings first.");
+      return;
+    }
+    try {
+      await invoke("start_download", { videoId: v.id, url: v.url, formatPref: "video", downloadDir: dir });
+      setView("downloads");
+      await refresh();
+    } catch (e) {
+      alert(String(e));
+    }
+  };
+
   const pickFolder = async () => {
     const folder = await invoke<string | null>("pick_folder");
     if (folder) {
@@ -136,7 +151,7 @@ export default function App() {
               <VideoView video={activeVideo} />
             ) : (
               <>
-                {view === "library" && <section><h2>Library</h2><Library videos={videos} onPlay={openVideo} /></section>}
+                {view === "library" && <section><h2>Library</h2><Library videos={videos} onPlay={openVideo} onDownload={downloadMissing} /></section>}
                 {view === "downloads" && <section><h2>Downloads</h2><Downloads queue={queue} videos={videos} onRefresh={refresh} downloadDir={settings.download_dir} /></section>}
                 {view === "settings" && <section><h2>Settings</h2><Settings downloadDir={settings.download_dir} onPickFolder={pickFolder} /></section>}
               </>

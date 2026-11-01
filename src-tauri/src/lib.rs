@@ -197,7 +197,7 @@ async fn start_download(
     let format_arg = match format_pref.as_str() {
         "audio" => "bestaudio[ext=m4a]/bestaudio".to_string(),
         "original" => "best".to_string(),
-        _ => "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best".to_string(),
+        _ => "bestvideo[vcodec^=avc1][ext=mp4]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best".to_string(),
     };
     let ext = if format_pref == "audio" { "m4a" } else { "mp4" };
     let template = format!("{}/%(playlist_title|channel|uploader)s/%(title)s [%(id)s].{}", download_dir, ext);

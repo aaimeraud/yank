@@ -4,7 +4,6 @@ use crate::models::{Metadata, Playlist, PlaylistInfo, Video};
 use crate::util;
 use serde_json::Value;
 use sqlx::SqlitePool;
-use tauri::Manager;
 
 #[tauri::command]
 pub async fn get_setting(state: tauri::State<'_, DbState>, key: String) -> Result<Option<String>, String> {

@@ -1,4 +1,3 @@
-use crate::models::Video;
 use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
 use sqlx::migrate::MigrateDatabase;
 use sqlx::Sqlite;
@@ -29,6 +28,3 @@ pub async fn init_db(app: &tauri::AppHandle) -> SqlitePool {
     sqlx::migrate!("./migrations").run(&pool).await.expect("migrate");
     pool
 }
-
-// re-export for convenience
-pub use crate::models::Video as _Video;

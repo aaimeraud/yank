@@ -28,14 +28,3 @@ pub fn find_thumbnail(video_path: &str) -> Option<String> {
     }
     None
 }
-
-pub fn find_ffmpeg() -> Option<String> {
-    let home = std::env::var("HOME").unwrap_or_default();
-    let candidates = ["ffmpeg", "/opt/homebrew/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/usr/bin/ffmpeg", &format!("{}/.local/bin/ffmpeg", home)];
-    for c in candidates {
-        if std::process::Command::new(c).arg("-version").output().map(|o| o.status.success()).unwrap_or(false) {
-            return Some(c.to_string());
-        }
-    }
-    None
-}

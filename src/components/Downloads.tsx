@@ -24,7 +24,8 @@ const eta = (raw: string | null) => {
 };
 
 const label = (status: string) =>
-  status === "downloading" ? "Downloading"
+  status === "queued" ? "Queued"
+  : status === "downloading" ? "Downloading"
   : status === "done" ? "Done"
   : status === "failed" ? "Failed"
   : status === "cancelled" ? "Cancelled"

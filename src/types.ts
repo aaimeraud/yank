@@ -41,3 +41,9 @@ export interface Playlist {
   url: string;
   thumbnail_path: string | null;
 }
+
+export interface PlaylistInfo {
+  title: string;
+  is_playlist: boolean;
+  entries: Metadata[];
+}

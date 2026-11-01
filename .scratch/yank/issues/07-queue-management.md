@@ -6,8 +6,15 @@
 
 **Status:** ready-for-agent
 
-- [ ] Queue persisted to SQLite; restored on launch
+- [x] Queue persisted to SQLite; restored on launch
 - [ ] Pause/resume/cancel/retry controls per item and globally
 - [ ] Concurrency setting respected (default 2)
-- [ ] Failed items remain with reason; retry re-runs them
-- [ ] Cancelled items removable from queue
+- [x] Failed items remain with reason; retry re-runs them
+- [x] Cancelled items removable from queue
+
+## Comments
+
+2026-11-01: Per-item pause, resume, retry, cancel, and remove ship in
+`ticket-23-download-controls`. Interrupted rows recover as paused on launch.
+Concurrency is capped at 2 in code but not yet a setting, and there are no
+global pause/cancel-all controls.

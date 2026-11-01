@@ -1,0 +1,58 @@
+:root {
+  color-scheme: dark;
+  --bg: #0f1115;
+  --panel: #171a21;
+  --border: #262a33;
+  --text: #e6e8eb;
+  --muted: #9aa1ad;
+  --accent: #6ea8fe;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app { display: flex; height: 100vh; }
+
+.sidebar {
+  width: 200px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.logo { font-size: 20px; font-weight: 700; margin: 0 4px 8px; }
+.sidebar nav { display: flex; flex-direction: column; gap: 4px; }
+.sidebar button {
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+.sidebar button:hover { background: #20242c; }
+.sidebar button.active { background: #2a3040; color: var(--accent); }
+
+.content { flex: 1; padding: 24px; overflow: auto; }
+.content h2 { margin-top: 0; }
+.empty { color: var(--muted); }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+.card .thumb { height: 110px; display: flex; align-items: center; justify-content: center; background: #0b0d11; border-radius: 6px; color: var(--muted); margin-bottom: 8px; font-size: 12px; text-transform: uppercase; }
+.card .title { font-weight: 600; font-size: 14px; }
+.card .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+.setting { margin-bottom: 16px; }
+.setting label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+.setting .row { display: flex; align-items: center; gap: 12px; }
+.setting button { padding: 6px 10px; border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 6px; cursor: pointer; }

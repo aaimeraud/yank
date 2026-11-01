@@ -154,8 +154,8 @@ pub async fn clear_finished_downloads(pool: &SqlitePool) -> Result<(), String> {
     Ok(())
 }
 
-pub async fn start_download(
-    app: tauri::AppHandle,
+pub async fn start_download<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     pool: SqlitePool,
     state: DownloadState,
     video_id: String,
@@ -179,8 +179,8 @@ pub async fn start_download(
     Ok(queue_id)
 }
 
-pub async fn resume_download(
-    app: tauri::AppHandle,
+pub async fn resume_download<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     pool: SqlitePool,
     state: DownloadState,
     queue_id: String,
@@ -221,8 +221,8 @@ pub async fn resume_download(
     Ok(())
 }
 
-fn spawn_download(
-    app: tauri::AppHandle,
+fn spawn_download<R: tauri::Runtime>(
+    app: tauri::AppHandle<R>,
     pool: SqlitePool,
     state: DownloadState,
     queue_id: String,
@@ -571,5 +571,140 @@ mod tests {
         assert!(is_media_path("/tmp/a.m4a"));
         assert!(!is_media_path("/tmp/a.part"));
         assert!(!is_media_path(""));
+    }
+
+    #[tokio::test]
+    #[ignore = "network access"]
+    async fn live_two_video_queue_completes_with_files() {
+        let app = tauri::test::mock_app();
+        let handle = app.handle().clone();
+        let pool = test_pool().await;
+        let state = DownloadState::new(2);
+        let dir = std::env::temp_dir().join(format!("yank-live-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let entries = [
+            ("v1", "https://www.youtube.com/watch?v=jNQXAC9IVRw"),
+            ("v2", "https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
+        ];
+        for (id, url) in entries {
+            insert_video(&pool, id, None).await;
+            start_download(
+                handle.clone(),
+                pool.clone(),
+                state.clone(),
+                id.to_string(),
+                url.to_string(),
+                "video".to_string(),
+                dir.display().to_string(),
+            )
+            .await
+            .unwrap();
+        }
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(180);
+        loop {
+            let statuses: Vec<(String,)> =
+                sqlx::query_as("SELECT status FROM queue_items ORDER BY created_at, rowid")
+                    .fetch_all(&pool)
+                    .await
+                    .unwrap();
+            if statuses.len() == 2 && statuses.iter().all(|s| s.0 == "done") {
+                break;
+            }
+            if std::time::Instant::now() > deadline {
+                panic!("downloads did not finish: {statuses:?}");
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        }
+
+        let files: Vec<(Option<String>,)> =
+            sqlx::query_as("SELECT file_path FROM videos ORDER BY id")
+                .fetch_all(&pool)
+                .await
+                .unwrap();
+        assert_eq!(files.len(), 2);
+        for (fp,) in files {
+            let path = fp.expect("file_path was recorded");
+            assert!(std::path::Path::new(&path).exists(), "missing {path}");
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    #[ignore = "network access"]
+    async fn live_pause_then_resume_completes() {
+        let app = tauri::test::mock_app();
+        let handle = app.handle().clone();
+        let pool = test_pool().await;
+        let state = DownloadState::new(1);
+        let dir = std::env::temp_dir().join(format!("yank-pause-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        insert_video(&pool, "v1", None).await;
+
+        let queue_id = start_download(
+            handle.clone(),
+            pool.clone(),
+            state.clone(),
+            "v1".to_string(),
+            "https://www.youtube.com/watch?v=dQw4w9WgXcQ".to_string(),
+            "video".to_string(),
+            dir.display().to_string(),
+        )
+        .await
+        .unwrap();
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(90);
+        loop {
+            let (status, progress): (String, f64) =
+                sqlx::query_as("SELECT status, progress FROM queue_items WHERE id=?")
+                    .bind(&queue_id)
+                    .fetch_one(&pool)
+                    .await
+                    .unwrap();
+            if status == "downloading" && progress > 0.0 {
+                break;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "never started downloading: {status} {progress}"
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        }
+
+        pause_download(&pool, &state, queue_id.clone()).await.unwrap();
+        assert_eq!(queue_status(&pool, &queue_id).await.as_deref(), Some("paused"));
+
+        resume_download(
+            handle.clone(),
+            pool.clone(),
+            state.clone(),
+            queue_id.clone(),
+            "video".to_string(),
+            dir.display().to_string(),
+        )
+        .await
+        .unwrap();
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(240);
+        loop {
+            let status = queue_status(&pool, &queue_id).await;
+            if status.as_deref() == Some("done") {
+                break;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "resume did not finish: {status:?}"
+            );
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        }
+
+        let (fp,): (Option<String>,) = sqlx::query_as("SELECT file_path FROM videos WHERE id='v1'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        let path = fp.expect("file_path was recorded after resume");
+        assert!(std::path::Path::new(&path).exists(), "missing {path}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

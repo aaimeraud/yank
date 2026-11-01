@@ -253,9 +253,17 @@ async fn start_download(
                     "queue_id": queue_id, "status":"downloading", "progress": percent, "speed": p.speed, "eta": p.eta
                 }));
             }
-            if line.contains("Destination:") {
+            if line.contains("Merging formats into") {
+                if let Some(path) = line.split("Merging formats into").nth(1) {
+                    let p = path.trim().trim_matches('"').to_string();
+                    if !p.is_empty() { final_file = Some(p); }
+                }
+            } else if line.contains("Destination:") {
                 if let Some(path) = line.split("Destination:").nth(1) {
-                    final_file = Some(path.trim().to_string());
+                    let p = path.trim().to_string();
+                    if p.ends_with(".mp4") || p.ends_with(".m4a") || p.ends_with(".mp3") || p.ends_with(".webm") {
+                        final_file = Some(p);
+                    }
                 }
             }
         }

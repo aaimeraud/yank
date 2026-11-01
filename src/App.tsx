@@ -84,7 +84,7 @@ export default function App() {
         <Sidebar view={view} setView={setView} url={url} setUrl={setUrl} onDownload={download} busy={busy} />
         <main className="content">
           {view === "library" && <section><h2>Library</h2><Library videos={videos} onPlay={setCurrentVideo} /></section>}
-          {view === "downloads" && <section><h2>Downloads</h2><Downloads queue={queue} onRefresh={refresh} /></section>}
+          {view === "downloads" && <section><h2>Downloads</h2><Downloads queue={queue} videos={videos} onRefresh={refresh} /></section>}
           {view === "settings" && <section><h2>Settings</h2><Settings downloadDir={settings.download_dir} onPickFolder={pickFolder} /></section>}
         </main>
       </div>

@@ -117,8 +117,9 @@ pub async fn start_download(
             let _ = sqlx::query("UPDATE queue_items SET status='done', progress=100 WHERE id=?")
                 .bind(&queue_id).execute(&pool2).await;
             if let Some(fp) = &final_file {
-                let _ = sqlx::query("UPDATE videos SET file_path=?, downloaded_at=? WHERE id=?")
-                    .bind(fp).bind(chrono::Utc::now().timestamp()).bind(&video_id).execute(&pool2).await;
+                let thumb = crate::util::find_thumbnail(fp);
+                let _ = sqlx::query("UPDATE videos SET file_path=?, downloaded_at=?, thumbnail_path=? WHERE id=?")
+                    .bind(fp).bind(chrono::Utc::now().timestamp()).bind(&thumb).bind(&video_id).execute(&pool2).await;
             }
             let _ = app2.emit("download-progress", serde_json::json!({"queue_id": queue_id, "status":"done","progress":100.0, "file_path": final_file}));
         } else {

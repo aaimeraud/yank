@@ -24,10 +24,24 @@ pub async fn list_videos(state: tauri::State<'_, DbState>) -> Result<Vec<Video>,
     let rows = sqlx::query_as::<_, (String, String, Option<String>, Option<i64>, Option<String>, String, String, Option<String>, Option<i64>, Option<i64>, i64, i64, Option<String>)>(
         "SELECT id, title, uploader, duration, thumbnail_path, source, url, file_path, file_size, downloaded_at, last_position, watched, playlist_id FROM videos ORDER BY downloaded_at DESC"
     ).fetch_all(&state.pool).await.map_err(|e| e.to_string())?;
-    Ok(rows.into_iter().map(|r| Video {
-        id: r.0, title: r.1, uploader: r.2, duration: r.3, thumbnail_path: r.4, source: r.5, url: r.6,
-        file_path: r.7, file_size: r.8, downloaded_at: r.9, last_position: r.10, watched: r.11 != 0, playlist_id: r.12,
-    }).collect())
+    let mut videos = Vec::with_capacity(rows.len());
+    for r in rows {
+        let mut thumbnail = r.4;
+        if thumbnail.is_none() {
+            if let Some(fp) = &r.7 {
+                if let Some(found) = util::find_thumbnail(fp) {
+                    let _ = sqlx::query("UPDATE videos SET thumbnail_path=? WHERE id=?")
+                        .bind(&found).bind(&r.0).execute(&state.pool).await;
+                    thumbnail = Some(found);
+                }
+            }
+        }
+        videos.push(Video {
+            id: r.0, title: r.1, uploader: r.2, duration: r.3, thumbnail_path: thumbnail, source: r.5, url: r.6,
+            file_path: r.7, file_size: r.8, downloaded_at: r.9, last_position: r.10, watched: r.11 != 0, playlist_id: r.12,
+        });
+    }
+    Ok(videos)
 }
 
 #[tauri::command]

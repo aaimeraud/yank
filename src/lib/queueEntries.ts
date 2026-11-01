@@ -6,6 +6,7 @@ export interface QueueEntriesOptions {
   metas: Metadata[];
   playlistId: string | null;
   downloadDir: string;
+  formatPref: string;
   videos: Video[];
   queue: QueueItem[];
 }
@@ -18,7 +19,7 @@ const ACTIVE = new Set(["queued", "downloading", "paused"]);
  * playlist turned out to be fully downloaded already.
  */
 export async function queueEntries(
-  { metas, playlistId, downloadDir, videos, queue }: QueueEntriesOptions,
+  { metas, playlistId, downloadDir, formatPref, videos, queue }: QueueEntriesOptions,
   invoke: Invoke,
   newId: () => string = () => crypto.randomUUID(),
 ): Promise<number> {
@@ -54,7 +55,7 @@ export async function queueEntries(
     await invoke("start_download", {
       videoId,
       url: target,
-      formatPref: "video",
+      formatPref,
       downloadDir,
     });
     queued += 1;

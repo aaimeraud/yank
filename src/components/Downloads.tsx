@@ -1,11 +1,13 @@
-import { invoke } from "@tauri-apps/api/core";
 import type { QueueItem, Video } from "../types";
 
 interface Props {
   queue: QueueItem[];
   videos: Video[];
-  onRefresh: () => void;
-  downloadDir: string | null;
+  onPause: (id: string) => void;
+  onResume: (id: string) => void;
+  onCancel: (id: string) => void;
+  onRemove: (id: string) => void;
+  onClearFinished: () => void;
 }
 
 const speed = (raw: string | null) => {
@@ -33,27 +35,15 @@ const label = (status: string) =>
   : status === "cancelled" ? "Cancelled"
   : status;
 
-export default function Downloads({ queue, videos, onRefresh, downloadDir }: Props) {
-  const run = async (action: () => Promise<unknown>) => {
-    try {
-      await action();
-      onRefresh();
-    } catch (e) {
-      alert(String(e));
-    }
-  };
-
-  const pause = (id: string) => run(() => invoke("pause_download", { queueId: id }));
-  const cancel = (id: string) => run(() => invoke("cancel_download", { queueId: id }));
-  const remove = (id: string) => run(() => invoke("remove_download", { queueId: id }));
-  const resume = (id: string) => {
-    if (!downloadDir) {
-      alert("Pick a downloads folder in Settings first.");
-      return;
-    }
-    run(() => invoke("resume_download", { queueId: id, formatPref: "video", downloadDir }));
-  };
-
+export default function Downloads({
+  queue,
+  videos,
+  onPause,
+  onResume,
+  onCancel,
+  onRemove,
+  onClearFinished,
+}: Props) {
   if (queue.length === 0) return <p className="empty">No downloads.</p>;
 
   const hasFinished = queue.some(
@@ -64,9 +54,7 @@ export default function Downloads({ queue, videos, onRefresh, downloadDir }: Pro
     <>
       {hasFinished && (
         <div className="queue-head">
-          <button onClick={() => run(() => invoke("clear_finished_downloads"))}>
-            Clear finished
-          </button>
+          <button onClick={onClearFinished}>Clear finished</button>
         </div>
       )}
       <ul className="queue">
@@ -93,11 +81,11 @@ export default function Downloads({ queue, videos, onRefresh, downloadDir }: Pro
               <progress value={q.progress} max={100} />
               <span className={`qstatus ${q.status}`}>{label(q.status)}</span>
               {q.error && <span className="err" title={q.error}>{q.error.slice(0, 80)}</span>}
-              {isActive && <button onClick={() => pause(q.id)}>Pause</button>}
-              {isActive && <button onClick={() => cancel(q.id)}>Cancel</button>}
-              {isPaused && <button onClick={() => resume(q.id)}>Resume</button>}
-              {isFailed && <button onClick={() => resume(q.id)}>Retry</button>}
-              {(isPaused || isFinished) && <button onClick={() => remove(q.id)}>Remove</button>}
+              {isActive && <button onClick={() => onPause(q.id)}>Pause</button>}
+              {isActive && <button onClick={() => onCancel(q.id)}>Cancel</button>}
+              {isPaused && <button onClick={() => onResume(q.id)}>Resume</button>}
+              {isFailed && <button onClick={() => onResume(q.id)}>Retry</button>}
+              {(isPaused || isFinished) && <button onClick={() => onRemove(q.id)}>Remove</button>}
             </li>
           );
         })}

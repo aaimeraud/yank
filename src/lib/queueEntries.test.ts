@@ -53,7 +53,7 @@ describe("queueEntries", () => {
     const metas = [meta("a"), meta("b"), meta("c")];
 
     const queued = await queueEntries(
-      { metas, playlistId: "p1", downloadDir: "/tmp/yank", videos: [], queue: [] },
+      { metas, playlistId: "p1", downloadDir: "/tmp/yank", formatPref: "video", videos: [], queue: [] },
       invoke,
     );
 
@@ -87,6 +87,7 @@ describe("queueEntries", () => {
         metas,
         playlistId: "p1",
         downloadDir: "/tmp/yank",
+        formatPref: "video",
         videos: [video("done", { file_path: "/tmp/done.mp4" })],
         queue: [queueItem("active", "downloading"), queueItem("paused", "paused")],
       },
@@ -106,6 +107,7 @@ describe("queueEntries", () => {
         metas: [meta("ghost")],
         playlistId: "p1",
         downloadDir: "/tmp/yank",
+        formatPref: "video",
         videos: [video("ghost")],
         queue: [queueItem("ghost", "done")],
       },
@@ -124,6 +126,7 @@ describe("queueEntries", () => {
         metas: [meta("a", { webpage_url: null })],
         playlistId: null,
         downloadDir: "/tmp/yank",
+        formatPref: "video",
         videos: [],
         queue: [],
       },
@@ -142,6 +145,7 @@ describe("queueEntries", () => {
         metas: [meta("", { webpage_url: "https://www.youtube.com/watch?v=unknown" })],
         playlistId: null,
         downloadDir: "/tmp/yank",
+        formatPref: "video",
         videos: [],
         queue: [],
       },

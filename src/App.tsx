@@ -86,17 +86,26 @@ export default function App() {
     if (!url.trim() || busy) return;
     setBusy(true);
     try {
-      const meta = await invoke<Metadata>("fetch_metadata", { url });
-      const source = meta.extractor ?? "Other";
-      const videoId = meta.id || crypto.randomUUID();
-      await invoke("add_video", { video: {
-        id: videoId, title: meta.title, uploader: meta.uploader, duration: meta.duration,
-        thumbnail_path: null, source, url: meta.webpage_url ?? url, file_path: null,
-        file_size: null, downloaded_at: null, last_position: 0, watched: false, playlist_id: null,
-      }});
-      const dir = settings.download_dir ?? (await invoke<string>("get_setting", { key: "download_dir" })) ?? "";
-      if (!dir) { alert("Pick a downloads folder in Settings first."); setBusy(false); return; }
-      await invoke("start_download", { videoId, url, formatPref: "video", downloadDir: dir });
+      const entries = await invoke<Metadata[]>("fetch_playlist_entries", { url });
+      const isPlaylist = entries.length > 1;
+      let playlistId: string | null = null;
+      if (isPlaylist) {
+        playlistId = crypto.randomUUID();
+        const source = entries[0].extractor ?? "Other";
+        await invoke("add_playlist", { playlist: { id: playlistId, title: entries[0].title || "Playlist", source, url, thumbnail_path: entries[0].thumbnail } });
+      }
+      for (const meta of (isPlaylist ? entries : [await invoke<Metadata>("fetch_metadata", { url })])) {
+        const source = meta.extractor ?? "Other";
+        const videoId = meta.id || crypto.randomUUID();
+        await invoke("add_video", { video: {
+          id: videoId, title: meta.title, uploader: meta.uploader, duration: meta.duration,
+          thumbnail_path: null, source, url: meta.webpage_url ?? url, file_path: null,
+          file_size: null, downloaded_at: null, last_position: 0, watched: false, playlist_id: playlistId,
+        }});
+        const dir = settings.download_dir ?? (await invoke<string>("get_setting", { key: "download_dir" })) ?? "";
+        if (!dir) { alert("Pick a downloads folder in Settings first."); setBusy(false); return; }
+        await invoke("start_download", { videoId, url: meta.webpage_url ?? url, formatPref: "video", downloadDir: dir });
+      }
       setUrl("");
       await refresh();
     } catch (e) {

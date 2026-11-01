@@ -54,6 +54,7 @@ pub async fn start_download(
             "--newline",
             "--no-update",
             "--js-runtimes", "deno",
+            "--merge-output-format", "mp4",
             "--progress-template", r#"{"percent":%(progress._percent)s,"speed":"%(progress.speed)s","eta":"%(progress.eta)s"}"#,
             "--write-thumbnail", "--convert-thumbnails", "jpg",
             "-o", &template,

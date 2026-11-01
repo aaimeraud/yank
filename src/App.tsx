@@ -79,11 +79,10 @@ export default function App() {
 
       let playlistId: string | null = null;
       if (info.is_playlist) {
-        playlistId = crypto.randomUUID();
         const first = metas[0];
-        await invoke("add_playlist", {
+        playlistId = await invoke<string>("add_playlist", {
           playlist: {
-            id: playlistId,
+            id: crypto.randomUUID(),
             title: info.title || "Playlist",
             source: first?.extractor ?? "Other",
             url,
@@ -98,7 +97,10 @@ export default function App() {
         if (!target) continue;
         const videoId = meta.id || crypto.randomUUID();
         const existing = videos.find((v) => v.id === videoId);
-        if (existing?.file_path) continue;
+        const inFlight = queue.some(
+          (q) => q.video_id === videoId && (q.status === "queued" || q.status === "downloading" || q.status === "paused"),
+        );
+        if (existing?.file_path || inFlight) continue;
         await invoke("add_video", { video: {
           id: videoId, title: meta.title, uploader: meta.uploader, duration: meta.duration,
           thumbnail_path: null, source: meta.extractor ?? "Other", url: target, file_path: null,

@@ -204,12 +204,26 @@ pub async fn add_video(state: tauri::State<'_, DbState>, video: Video) -> Result
     Ok(())
 }
 
-#[tauri::command]
-pub async fn add_playlist(state: tauri::State<'_, DbState>, playlist: Playlist) -> Result<(), String> {
-    sqlx::query("INSERT OR IGNORE INTO playlists (id, title, source, url, thumbnail_path) VALUES (?,?,?,?,?)")
+async fn upsert_playlist(pool: &SqlitePool, playlist: Playlist) -> Result<String, String> {
+    // Re-adding the same playlist must reuse its row, or every video would point
+    // at an id that was silently ignored by the unique url constraint.
+    if let Some((id,)) = sqlx::query_as::<_, (String,)>("SELECT id FROM playlists WHERE url=?")
+        .bind(&playlist.url)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| e.to_string())?
+    {
+        return Ok(id);
+    }
+    sqlx::query("INSERT INTO playlists (id, title, source, url, thumbnail_path) VALUES (?,?,?,?,?)")
         .bind(&playlist.id).bind(&playlist.title).bind(&playlist.source).bind(&playlist.url).bind(&playlist.thumbnail_path)
-        .execute(&state.pool).await.map_err(|e| e.to_string())?;
-    Ok(())
+        .execute(pool).await.map_err(|e| e.to_string())?;
+    Ok(playlist.id)
+}
+
+#[tauri::command]
+pub async fn add_playlist(state: tauri::State<'_, DbState>, playlist: Playlist) -> Result<String, String> {
+    upsert_playlist(&state.pool, playlist).await
 }
 
 #[tauri::command]
@@ -366,5 +380,39 @@ mod tests {
             .unwrap();
         assert!(!info.is_playlist);
         assert_eq!(info.entries.len(), 1);
+    }
+
+    async fn test_pool() -> SqlitePool {
+        use sqlx::sqlite::SqlitePoolOptions;
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect("sqlite::memory:")
+            .await
+            .unwrap();
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+        pool
+    }
+
+    fn playlist(id: &str) -> Playlist {
+        Playlist {
+            id: id.to_string(),
+            title: "List".to_string(),
+            source: "Youtube".to_string(),
+            url: "https://example.com/list".to_string(),
+            thumbnail_path: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn add_playlist_reuses_the_existing_row() {
+        let pool = test_pool().await;
+        assert_eq!(upsert_playlist(&pool, playlist("p1")).await.unwrap(), "p1");
+        assert_eq!(upsert_playlist(&pool, playlist("p2")).await.unwrap(), "p1");
+
+        let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM playlists")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(count.0, 1);
     }
 }

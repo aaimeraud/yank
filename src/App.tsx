@@ -129,8 +129,10 @@ export default function App() {
                   <section>
                     <h2>Settings</h2>
                     <Settings
-                      downloadDir={settings.settings.download_dir}
+                      settings={settings.settings}
+                      onUpdate={settings.update}
                       onPickFolder={settings.pickFolder}
+                      onPickCookies={settings.pickCookies}
                     />
                   </section>
                 )}

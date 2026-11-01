@@ -68,9 +68,42 @@ pub async fn pick_folder(app: tauri::AppHandle) -> Result<Option<String>, String
 }
 
 #[tauri::command]
-pub async fn fetch_metadata(url: String) -> Result<Metadata, String> {
+pub async fn pick_file(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let file = app
+        .dialog()
+        .file()
+        .add_filter("Cookies", &["txt"])
+        .blocking_pick_file();
+    Ok(file.map(|p| p.to_string()))
+}
+
+#[tauri::command]
+pub async fn ytdlp_version() -> Result<String, String> {
+    let output = tokio::process::Command::new(util::find_ytdlp())
+        .arg("--version")
+        .output()
+        .await
+        .map_err(|e| e.to_string())?;
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).to_string());
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+async fn cookies_for(pool: &SqlitePool) -> Option<String> {
+    crate::db::setting(pool, "cookies_path").await
+}
+
+#[tauri::command]
+pub async fn fetch_metadata(state: tauri::State<'_, DbState>, url: String) -> Result<Metadata, String> {
     let ytdlp = util::find_ytdlp();
-    let output = tokio::process::Command::new(&ytdlp).args(["--dump-json", "--no-playlist", &url]).output().await.map_err(|e| e.to_string())?;
+    let mut cmd = tokio::process::Command::new(&ytdlp);
+    cmd.args(["--dump-json", "--no-playlist", &url]);
+    if let Some(cookies) = cookies_for(&state.pool).await {
+        cmd.args(["--cookies", &cookies]);
+    }
+    let output = cmd.output().await.map_err(|e| e.to_string())?;
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).to_string());
     }
@@ -179,18 +212,27 @@ fn parse_playlist_output(bytes: &[u8]) -> Result<PlaylistInfo, String> {
     Ok(PlaylistInfo { title, is_playlist, entries })
 }
 
-#[tauri::command]
-pub async fn fetch_playlist_info(url: String) -> Result<PlaylistInfo, String> {
+async fn fetch_playlist_info_with(url: &str, cookies: Option<&str>) -> Result<PlaylistInfo, String> {
     let ytdlp = util::find_ytdlp();
-    let output = tokio::process::Command::new(&ytdlp)
-        .args(["--dump-single-json", "--flat-playlist", "--no-warnings", &url])
-        .output()
-        .await
-        .map_err(|e| e.to_string())?;
+    let mut cmd = tokio::process::Command::new(&ytdlp);
+    cmd.args(["--dump-single-json", "--flat-playlist", "--no-warnings", url]);
+    if let Some(cookies) = cookies {
+        cmd.args(["--cookies", cookies]);
+    }
+    let output = cmd.output().await.map_err(|e| e.to_string())?;
     if !output.status.success() {
         return Err(String::from_utf8_lossy(&output.stderr).to_string());
     }
     parse_playlist_output(&output.stdout)
+}
+
+#[tauri::command]
+pub async fn fetch_playlist_info(
+    state: tauri::State<'_, DbState>,
+    url: String,
+) -> Result<PlaylistInfo, String> {
+    let cookies = cookies_for(&state.pool).await;
+    fetch_playlist_info_with(&url, cookies.as_deref()).await
 }
 
 #[tauri::command]
@@ -361,7 +403,7 @@ mod tests {
     #[tokio::test]
     #[ignore = "network access"]
     async fn live_playlist_extraction() {
-        let info = fetch_playlist_info("https://www.youtube.com/@RickAstleyYT/videos".to_string())
+        let info = fetch_playlist_info_with("https://www.youtube.com/@RickAstleyYT/videos", None)
             .await
             .unwrap();
         assert!(info.is_playlist);
@@ -374,7 +416,7 @@ mod tests {
     #[tokio::test]
     #[ignore = "network access"]
     async fn live_single_video_is_not_playlist() {
-        let info = fetch_playlist_info("https://www.youtube.com/watch?v=dQw4w9WgXcQ".to_string())
+        let info = fetch_playlist_info_with("https://www.youtube.com/watch?v=dQw4w9WgXcQ", None)
             .await
             .unwrap();
         assert!(!info.is_playlist);

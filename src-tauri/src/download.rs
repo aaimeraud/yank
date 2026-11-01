@@ -281,6 +281,9 @@ fn spawn_download<R: tauri::Runtime>(
             &template,
             &url,
         ]);
+        if let Some(cookies) = crate::db::setting(&pool, "cookies_path").await {
+            cmd.args(["--cookies", &cookies]);
+        }
         cmd.stdout(Stdio::piped());
         cmd.stderr(Stdio::piped());
 

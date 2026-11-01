@@ -280,7 +280,7 @@ body {
 .queue-head { display: flex; justify-content: flex-end; margin-bottom: 10px; }
 .muted { color: var(--faint); font-size: var(--fs-small); }
 .err { color: var(--negative); font-size: var(--fs-small); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.queue button, .setting button {
+.queue button, .settings button {
   padding: 5px 14px;
   border: 1px solid var(--glass-edge-soft);
   background: var(--glass);
@@ -291,12 +291,56 @@ body {
   height: 30px;
   transition: background 0.15s ease;
 }
-.queue button:hover, .setting button:hover { background: var(--glass-strong); }
+.queue button:hover, .settings button:hover { background: var(--glass-strong); }
 
 /* ---------- settings ---------- */
-.setting { margin-bottom: 18px; }
-.setting label { display: block; color: var(--muted); font-size: var(--fs-small); margin-bottom: 6px; }
-.setting .row { display: flex; align-items: center; gap: 12px; }
+.settings { display: flex; flex-direction: column; gap: 16px; max-width: 760px; }
+.settings-group {
+  background: var(--glass);
+  border: 1px solid var(--glass-edge-soft);
+  border-radius: var(--radius-panel);
+  padding: 4px 20px 6px;
+}
+.settings-group h3 {
+  margin: 14px 0 2px;
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 15px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.055);
+}
+.settings-group h3 + .setting-row { border-top: none; }
+.setting-row label { display: block; color: var(--text); font-size: var(--fs-body); font-weight: 500; }
+.setting-row p { margin: 3px 0 0; color: var(--faint); font-size: var(--fs-small); }
+.setting-control { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.settings .path {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: var(--fs-small);
+}
+.settings select {
+  min-width: 190px;
+  padding: 6px 10px;
+  border: 1px solid var(--glass-edge-soft);
+  border-radius: var(--radius-control);
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-small);
+  height: 30px;
+}
+.settings select:focus { outline: none; border-color: var(--glass-edge); }
 
 /* ---------- video view ---------- */
 .videoview {

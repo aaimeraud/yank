@@ -8,6 +8,24 @@ pub struct DbState {
     pub pool: SqlitePool,
 }
 
+pub async fn setting(pool: &SqlitePool, key: &str) -> Option<String> {
+    sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key=?")
+        .bind(key)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten()
+        .filter(|value| !value.is_empty())
+}
+
+/// Clamp a stored concurrency value into a range that cannot starve the app.
+pub fn concurrency(value: Option<String>) -> usize {
+    value
+        .and_then(|raw| raw.parse::<usize>().ok())
+        .unwrap_or(2)
+        .clamp(1, 4)
+}
+
 pub fn db_path(app: &tauri::AppHandle) -> PathBuf {
     let dir = app.path().app_data_dir().expect("app data dir");
     std::fs::create_dir_all(&dir).ok();
@@ -85,6 +103,36 @@ mod tests {
         .execute(pool)
         .await
         .unwrap();
+    }
+
+    #[tokio::test]
+    async fn reads_settings_and_treats_empty_as_unset() {
+        let pool = test_pool().await;
+        assert_eq!(setting(&pool, "cookies_path").await, None);
+
+        sqlx::query("INSERT INTO settings (key, value) VALUES ('cookies_path', '/tmp/cookies.txt')")
+            .execute(&pool)
+            .await
+            .unwrap();
+        assert_eq!(
+            setting(&pool, "cookies_path").await.as_deref(),
+            Some("/tmp/cookies.txt")
+        );
+
+        sqlx::query("UPDATE settings SET value='' WHERE key='cookies_path'")
+            .execute(&pool)
+            .await
+            .unwrap();
+        assert_eq!(setting(&pool, "cookies_path").await, None);
+    }
+
+    #[test]
+    fn clamps_concurrency_to_a_safe_range() {
+        assert_eq!(concurrency(None), 2);
+        assert_eq!(concurrency(Some("3".to_string())), 3);
+        assert_eq!(concurrency(Some("0".to_string())), 1);
+        assert_eq!(concurrency(Some("9".to_string())), 4);
+        assert_eq!(concurrency(Some("junk".to_string())), 2);
     }
 
     #[tokio::test]

@@ -17,8 +17,10 @@ pub fn run() {
             let pool = tauri::async_runtime::block_on(db::init_db(app.handle()));
             tauri::async_runtime::block_on(download::recover_interrupted(&pool)).ok();
             tauri::async_runtime::block_on(db::reconcile_missing_files(&pool)).ok();
+            let concurrency =
+                db::concurrency(tauri::async_runtime::block_on(db::setting(&pool, "concurrency")));
             app.manage(DbState { pool });
-            app.manage(download::DownloadState::new(2));
+            app.manage(download::DownloadState::new(concurrency));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -28,6 +30,8 @@ pub fn run() {
             commands::list_playlists,
             commands::list_queue,
             commands::pick_folder,
+            commands::pick_file,
+            commands::ytdlp_version,
             commands::fetch_metadata,
             commands::fetch_playlist_info,
             commands::add_video,

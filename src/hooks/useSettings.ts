@@ -52,5 +52,10 @@ export function useSettings() {
     if (folder) await update("download_dir", folder);
   }, [update]);
 
-  return { settings, loaded, load, update, pickFolder };
+  const pickCookies = useCallback(async () => {
+    const file = await invoke<string | null>("pick_file");
+    if (file) await update("cookies_path", file);
+  }, [update]);
+
+  return { settings, loaded, load, update, pickFolder, pickCookies };
 }

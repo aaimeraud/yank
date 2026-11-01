@@ -8,6 +8,7 @@ import Downloads from "./components/Downloads";
 import Settings from "./components/Settings";
 import TabBar from "./components/TabBar";
 import VideoView from "./components/VideoView";
+import { queueEntries } from "./lib/queueEntries";
 import "./App.css";
 
 export default function App() {
@@ -91,24 +92,10 @@ export default function App() {
         });
       }
 
-      let queued = 0;
-      for (const meta of metas) {
-        const target = meta.webpage_url;
-        if (!target) continue;
-        const videoId = meta.id || crypto.randomUUID();
-        const existing = videos.find((v) => v.id === videoId);
-        const inFlight = queue.some(
-          (q) => q.video_id === videoId && (q.status === "queued" || q.status === "downloading" || q.status === "paused"),
-        );
-        if (existing?.file_path || inFlight) continue;
-        await invoke("add_video", { video: {
-          id: videoId, title: meta.title, uploader: meta.uploader, duration: meta.duration,
-          thumbnail_path: null, source: meta.extractor ?? "Other", url: target, file_path: null,
-          file_size: null, downloaded_at: null, last_position: 0, watched: false, playlist_id: playlistId,
-        }});
-        await invoke("start_download", { videoId, url: target, formatPref: "video", downloadDir: dir });
-        queued += 1;
-      }
+      const queued = await queueEntries(
+        { metas, playlistId, downloadDir: dir, videos, queue },
+        invoke,
+      );
 
       setUrl("");
       await refresh();

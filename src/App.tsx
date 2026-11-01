@@ -77,12 +77,17 @@ export default function App() {
 
   return (
     <div className="app">
-      <Sidebar view={view} setView={setView} url={url} setUrl={setUrl} onDownload={download} busy={busy} />
-      <main className="content">
-        {view === "library" && <section><h2>Library</h2><Library videos={videos} onPlay={setCurrentVideo} /></section>}
-        {view === "downloads" && <section><h2>Downloads</h2><Downloads queue={queue} onRefresh={refresh} /></section>}
-        {view === "settings" && <section><h2>Settings</h2><Settings downloadDir={settings.download_dir} onPickFolder={pickFolder} /></section>}
-      </main>
+      <div className="titlebar" data-tauri-drag-region>
+        <span data-tauri-drag-region>Yank</span>
+      </div>
+      <div className="workspace">
+        <Sidebar view={view} setView={setView} url={url} setUrl={setUrl} onDownload={download} busy={busy} />
+        <main className="content">
+          {view === "library" && <section><h2>Library</h2><Library videos={videos} onPlay={setCurrentVideo} /></section>}
+          {view === "downloads" && <section><h2>Downloads</h2><Downloads queue={queue} onRefresh={refresh} /></section>}
+          {view === "settings" && <section><h2>Settings</h2><Settings downloadDir={settings.download_dir} onPickFolder={pickFolder} /></section>}
+        </main>
+      </div>
       <Player video={currentVideo} />
     </div>
   );

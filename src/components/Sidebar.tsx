@@ -12,7 +12,6 @@ interface Props {
 export default function Sidebar({ view, setView, url, setUrl, onDownload, busy }: Props) {
   return (
     <aside className="sidebar">
-      <h1 className="logo">Yank</h1>
       <nav>
         <button className={view === "library" ? "active" : ""} onClick={() => setView("library")}>Library</button>
         <button className={view === "downloads" ? "active" : ""} onClick={() => setView("downloads")}>Downloads</button>

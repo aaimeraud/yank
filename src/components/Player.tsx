@@ -5,6 +5,13 @@ import type { Video } from "../types";
 
 interface Props { video: Video | null; }
 
+const fmt = (s: number) => {
+  if (!isFinite(s) || s < 0) return "0:00";
+  const m = Math.floor(s / 60);
+  const r = Math.floor(s % 60);
+  return `${m}:${String(r).padStart(2, "0")}`;
+};
+
 export default function Player({ video }: Props) {
   const ref = useRef<HTMLVideoElement>(null);
   const [playing, setPlaying] = useState(false);
@@ -13,32 +20,56 @@ export default function Player({ video }: Props) {
   const [volume, setVolume] = useState(1);
   const [showResume, setShowResume] = useState(false);
   const resumedRef = useRef(false);
+  const savedRef = useRef(0);
+
+  const save = (el: HTMLVideoElement, force = false) => {
+    if (!video?.id) return;
+    const sec = Math.floor(el.currentTime);
+    if (!force && sec === savedRef.current) return;
+    savedRef.current = sec;
+    const watched = el.duration > 0 && el.currentTime / el.duration >= 0.9;
+    invoke("update_playback", { videoId: video.id, position: sec, watched }).catch(() => {});
+  };
 
   useEffect(() => {
-    setProgress(0); setDuration(0); setShowResume(false); resumedRef.current = false;
+    setProgress(0);
+    setDuration(0);
+    setShowResume(false);
+    resumedRef.current = false;
+    savedRef.current = 0;
     const el = ref.current;
     if (!el || !video?.file_path) return;
     const onLoaded = () => {
-      setDuration(el.duration || 0);
-      if (video.last_position > 5 && video.last_position < (el.duration || 0) * 0.9 && !resumedRef.current) {
+      const d = el.duration || 0;
+      setDuration(d);
+      const pos = video.last_position ?? 0;
+      if (pos > 5 && d > 0 && pos < d - 10 && !resumedRef.current) {
         setShowResume(true);
       }
     };
     const onTime = () => {
       setProgress(el.currentTime);
-      if (video.id && el.currentTime > 0 && Math.floor(el.currentTime) % 5 === 0) {
-        const watched = el.duration > 0 && el.currentTime / el.duration >= 0.9;
-        invoke("update_playback", { videoId: video.id, position: Math.floor(el.currentTime), watched }).catch(() => {});
-      }
+      save(el);
     };
+    const onPause = () => save(el, true);
     el.addEventListener("loadedmetadata", onLoaded);
     el.addEventListener("timeupdate", onTime);
-    return () => { el.removeEventListener("loadedmetadata", onLoaded); el.removeEventListener("timeupdate", onTime); };
+    el.addEventListener("pause", onPause);
+    return () => {
+      el.removeEventListener("loadedmetadata", onLoaded);
+      el.removeEventListener("timeupdate", onTime);
+      el.removeEventListener("pause", onPause);
+      save(el, true);
+    };
   }, [video]);
 
   const resume = () => {
     const el = ref.current;
-    if (el && video) { el.currentTime = video.last_position; setShowResume(false); resumedRef.current = true; }
+    if (el && video) {
+      el.currentTime = video.last_position;
+      setShowResume(false);
+      resumedRef.current = true;
+    }
   };
   const dismissResume = () => { setShowResume(false); resumedRef.current = true; };
 
@@ -71,17 +102,23 @@ export default function Player({ video }: Props) {
     <div className="playerbar">
       {showResume && (
         <div className="resume">
-          Resume at {Math.floor((video.last_position)/60)}:{String(video.last_position % 60).padStart(2,"0")}?
+          Resume at {fmt(video.last_position)}?
           <button onClick={resume}>Resume</button>
           <button onClick={dismissResume}>Start over</button>
         </div>
       )}
-      <video ref={ref} src={convertFileSrc(video.file_path)} autoPlay onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} />
+      <video
+        ref={ref}
+        src={convertFileSrc(video.file_path)}
+        autoPlay
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+      />
       <div className="playercontrols">
         <button onClick={toggle}>{playing ? "Pause" : "Play"}</button>
         <input type="range" min={0} max={duration || 0} step={0.1} value={progress} onChange={seek} />
-        <span className="time">{Math.floor(progress)}/{Math.floor(duration)}</span>
-        <input type="range" min={0} max={1} step={0.01} value={volume} onChange={onVolume} />
+        <span className="time">{fmt(progress)} / {fmt(duration)}</span>
+        <input type="range" min={0} max={1} step={0.01} value={volume} onChange={onVolume} aria-label="Volume" />
         <button onClick={fullscreen}>Fullscreen</button>
         <span className="playertitle">{video.title}</span>
       </div>

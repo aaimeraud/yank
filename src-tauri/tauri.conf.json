@@ -13,8 +13,13 @@
     "windows": [
       {
         "title": "Yank",
-        "width": 800,
-        "height": 600
+        "width": 1100,
+        "height": 720,
+        "minWidth": 720,
+        "minHeight": 520,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": { "x": 20, "y": 20 }
       }
     ],
     "security": {

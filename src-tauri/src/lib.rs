@@ -87,9 +87,11 @@ pub async fn init_db(app: &tauri::AppHandle) -> SqlitePool {
 
 fn find_ytdlp() -> String {
     if let Ok(p) = std::env::var("YTDLP_PATH") { if std::path::Path::new(&p).exists() { return p; } }
-    for c in ["yt-dlp", "/opt/homebrew/bin/yt-dlp", "/usr/local/bin/yt-dlp", "/usr/bin/yt-dlp"] {
-        if std::process::Command::new(c).arg("--version").output().map(|o| o.status.success()).unwrap_or(false) {
-            return c.to_string();
+    let home = std::env::var("HOME").unwrap_or_default();
+    let mut candidates = vec!["yt-dlp".to_string(), format!("{}/.local/bin/yt-dlp", home), "/opt/homebrew/bin/yt-dlp".to_string(), "/usr/local/bin/yt-dlp".to_string(), "/usr/bin/yt-dlp".to_string()];
+    for c in candidates {
+        if std::process::Command::new(&c).arg("--version").output().map(|o| o.status.success()).unwrap_or(false) {
+            return c;
         }
     }
     "yt-dlp".to_string()
@@ -207,6 +209,8 @@ async fn start_download(
         cmd.args([
             "-f", &format_arg,
             "--newline",
+            "--no-update",
+            "--js-runtimes", "deno",
             "--progress-template", r#"{"percent":%(progress._percent)s,"speed":"%(progress.speed)s","eta":"%(progress.eta)s"}"#,
             "--write-thumbnail", "--convert-thumbnails", "jpg",
             "-o", &template,

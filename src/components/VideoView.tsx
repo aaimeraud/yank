@@ -33,6 +33,9 @@ export default function VideoView({ video }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const shellRef = useRef<HTMLDivElement>(null);
   const savedRef = useRef(0);
+  // The element is already pointed at the next tab's file when this effect
+  // cleans up, so the position has to be captured while it still plays.
+  const lastTimeRef = useRef(0);
   const flashTimer = useRef<number | null>(null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -71,6 +74,7 @@ export default function VideoView({ video }: Props) {
     el.playbackRate = 1;
     el.volume = volume;
     savedRef.current = 0;
+    lastTimeRef.current = 0;
 
     const onLoaded = () => {
       const d = el.duration || 0;
@@ -79,6 +83,7 @@ export default function VideoView({ video }: Props) {
       if (pos > 5 && d > 0 && pos < d - 10) setShowResume(true);
     };
     const onTime = () => {
+      lastTimeRef.current = el.currentTime;
       setProgress(el.currentTime);
       if (Math.abs(el.currentTime - savedRef.current) >= 5) save();
     };
@@ -97,7 +102,11 @@ export default function VideoView({ video }: Props) {
       el.removeEventListener("timeupdate", onTime);
       el.removeEventListener("ended", onEnded);
       document.removeEventListener("fullscreenchange", onFs);
-      save(true);
+      const sec = Math.floor(lastTimeRef.current);
+      if (sec > 0) {
+        const watched = el.duration > 0 && lastTimeRef.current / el.duration >= 0.9;
+        invoke("update_playback", { videoId: video.id, position: sec, watched }).catch(() => {});
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [video.id]);

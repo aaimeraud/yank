@@ -225,6 +225,18 @@ async fn start_download(
             }
         };
 
+        let stderr = child.stderr.take().unwrap();
+        let stderr_lines = std::sync::Arc::new(tokio::sync::Mutex::new(Vec::<String>::new()));
+        let stderr_lines2 = stderr_lines.clone();
+        tokio::spawn(async move {
+            let mut r = BufReader::new(stderr).lines();
+            while let Ok(Some(l)) = r.next_line().await {
+                let mut g = stderr_lines2.lock().await;
+                g.push(l);
+                if g.len() > 20 { g.remove(0); }
+            }
+        });
+
         let stdout = child.stdout.take().unwrap();
         let mut reader = BufReader::new(stdout).lines();
         let mut final_file: Option<String> = None;
@@ -254,9 +266,11 @@ async fn start_download(
             }
             let _ = app2.emit("download-progress", serde_json::json!({"queue_id": queue_id, "status":"done","progress":100.0, "file_path": final_file}));
         } else {
-            let _ = sqlx::query("UPDATE queue_items SET status='failed', error='yt-dlp failed' WHERE id=?")
-                .bind(&queue_id).execute(&pool).await;
-            let _ = app2.emit("download-progress", serde_json::json!({"queue_id": queue_id, "status":"failed","error":"yt-dlp failed"}));
+            let tail = stderr_lines.lock().await.join("\n");
+            let msg = if tail.is_empty() { "yt-dlp failed".to_string() } else { tail };
+            let _ = sqlx::query("UPDATE queue_items SET status='failed', error=? WHERE id=?")
+                .bind(&msg).bind(&queue_id).execute(&pool).await;
+            let _ = app2.emit("download-progress", serde_json::json!({"queue_id": queue_id, "status":"failed","error": msg}));
         }
     });
 

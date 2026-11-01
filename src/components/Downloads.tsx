@@ -74,7 +74,8 @@ export default function Downloads({ queue, videos, onRefresh, downloadDir }: Pro
           const video = videos.find((v) => v.id === q.video_id);
           const isActive = q.status === "queued" || q.status === "downloading";
           const isPaused = q.status === "paused";
-          const isFinished = q.status === "done" || q.status === "failed" || q.status === "cancelled";
+          const isFailed = q.status === "failed";
+          const isFinished = q.status === "done" || isFailed || q.status === "cancelled";
           const meta =
             q.status === "downloading"
               ? [speed(q.speed), eta(q.eta)].filter(Boolean).join(" · ")
@@ -95,6 +96,7 @@ export default function Downloads({ queue, videos, onRefresh, downloadDir }: Pro
               {isActive && <button onClick={() => pause(q.id)}>Pause</button>}
               {isActive && <button onClick={() => cancel(q.id)}>Cancel</button>}
               {isPaused && <button onClick={() => resume(q.id)}>Resume</button>}
+              {isFailed && <button onClick={() => resume(q.id)}>Retry</button>}
               {(isPaused || isFinished) && <button onClick={() => remove(q.id)}>Remove</button>}
             </li>
           );

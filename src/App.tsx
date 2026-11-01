@@ -40,6 +40,10 @@ export default function App() {
     tabs.select(null);
   };
 
+  const removeVideo = async (videoId: string, deleteFile: boolean) => {
+    if (await library.removeVideo(videoId, deleteFile)) tabs.close(videoId);
+  };
+
   const downloadMissing = async (video: Video) => {
     const dir =
       settings.settings.download_dir ??
@@ -100,8 +104,14 @@ export default function App() {
                     <h2>Library</h2>
                     <Library
                       videos={library.videos}
+                      folders={library.folders}
                       onPlay={tabs.open}
                       onDownload={downloadMissing}
+                      onCreateFolder={library.createFolder}
+                      onRenameFolder={library.renameFolder}
+                      onDeleteFolder={library.deleteFolder}
+                      onMoveVideo={library.moveVideo}
+                      onRemoveVideo={removeVideo}
                     />
                   </section>
                 )}

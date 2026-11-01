@@ -15,6 +15,15 @@ pub struct Video {
     pub last_position: i64,
     pub watched: bool,
     pub playlist_id: Option<String>,
+    pub folder_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Folder {
+    pub id: String,
+    pub name: String,
+    pub created_at: i64,
+    pub video_count: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

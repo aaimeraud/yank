@@ -11,6 +11,14 @@ export interface Video {
   file_path: string | null;
   watched: boolean;
   last_position: number;
+  folder_id: string | null;
+}
+
+export interface Folder {
+  id: string;
+  name: string;
+  created_at: number;
+  video_count: number;
 }
 
 export interface QueueItem {

@@ -1,6 +1,6 @@
 use crate::db::DbState;
 use crate::download::{self, DownloadState};
-use crate::models::{Metadata, Playlist, PlaylistInfo, Video};
+use crate::models::{Folder, Metadata, Playlist, PlaylistInfo, Video};
 use crate::util;
 use serde_json::Value;
 use sqlx::SqlitePool;
@@ -21,8 +21,8 @@ pub async fn set_setting(state: tauri::State<'_, DbState>, key: String, value: S
 
 #[tauri::command]
 pub async fn list_videos(state: tauri::State<'_, DbState>) -> Result<Vec<Video>, String> {
-    let rows = sqlx::query_as::<_, (String, String, Option<String>, Option<i64>, Option<String>, String, String, Option<String>, Option<i64>, Option<i64>, i64, i64, Option<String>)>(
-        "SELECT id, title, uploader, duration, thumbnail_path, source, url, file_path, file_size, downloaded_at, last_position, watched, playlist_id FROM videos ORDER BY downloaded_at DESC"
+    let rows = sqlx::query_as::<_, (String, String, Option<String>, Option<i64>, Option<String>, String, String, Option<String>, Option<i64>, Option<i64>, i64, i64, Option<String>, Option<String>)>(
+        "SELECT id, title, uploader, duration, thumbnail_path, source, url, file_path, file_size, downloaded_at, last_position, watched, playlist_id, folder_id FROM videos ORDER BY downloaded_at DESC"
     ).fetch_all(&state.pool).await.map_err(|e| e.to_string())?;
     let mut videos = Vec::with_capacity(rows.len());
     for r in rows {
@@ -39,14 +39,226 @@ pub async fn list_videos(state: tauri::State<'_, DbState>) -> Result<Vec<Video>,
         videos.push(Video {
             id: r.0, title: r.1, uploader: r.2, duration: r.3, thumbnail_path: thumbnail, source: r.5, url: r.6,
             file_path: r.7, file_size: r.8, downloaded_at: r.9, last_position: r.10, watched: r.11 != 0, playlist_id: r.12,
+            folder_id: r.13,
         });
     }
     Ok(videos)
 }
 
+fn folder_name(raw: &str) -> Result<String, String> {
+    let name = raw.trim();
+    if name.is_empty() {
+        return Err("Folder name cannot be empty.".to_string());
+    }
+    if name.chars().count() > 60 {
+        return Err("Folder name is limited to 60 characters.".to_string());
+    }
+    Ok(name.to_string())
+}
+
+async fn list_folders_for(pool: &SqlitePool) -> Result<Vec<Folder>, String> {
+    let rows = sqlx::query_as::<_, (String, String, i64, i64)>(
+        "SELECT f.id, f.name, f.created_at, COUNT(v.id) \
+         FROM folders f LEFT JOIN videos v ON v.folder_id = f.id \
+         GROUP BY f.id, f.name, f.created_at \
+         ORDER BY f.name COLLATE NOCASE",
+    )
+    .fetch_all(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(rows
+        .into_iter()
+        .map(|r| Folder {
+            id: r.0,
+            name: r.1,
+            created_at: r.2,
+            video_count: r.3,
+        })
+        .collect())
+}
+
+async fn create_folder_for(pool: &SqlitePool, raw_name: &str) -> Result<Folder, String> {
+    let name = folder_name(raw_name)?;
+    let id = uuid::Uuid::new_v4().to_string();
+    let created_at = chrono::Utc::now().timestamp();
+    sqlx::query("INSERT INTO folders (id, name, created_at) VALUES (?,?,?)")
+        .bind(&id)
+        .bind(&name)
+        .bind(created_at)
+        .execute(pool)
+        .await
+        .map_err(|e| match &e {
+            sqlx::Error::Database(db) if db.is_unique_violation() => {
+                format!("A folder named \"{name}\" already exists.")
+            }
+            _ => e.to_string(),
+        })?;
+    Ok(Folder {
+        id,
+        name,
+        created_at,
+        video_count: 0,
+    })
+}
+
+async fn rename_folder_for(pool: &SqlitePool, id: &str, raw_name: &str) -> Result<(), String> {
+    let name = folder_name(raw_name)?;
+    let result = sqlx::query("UPDATE folders SET name=? WHERE id=?")
+        .bind(&name)
+        .bind(id)
+        .execute(pool)
+        .await
+        .map_err(|e| match &e {
+            sqlx::Error::Database(db) if db.is_unique_violation() => {
+                format!("A folder named \"{name}\" already exists.")
+            }
+            _ => e.to_string(),
+        })?;
+    if result.rows_affected() == 0 {
+        return Err("Folder not found.".to_string());
+    }
+    Ok(())
+}
+
+async fn delete_folder_for(pool: &SqlitePool, id: &str) -> Result<(), String> {
+    // SQLite only honours ON DELETE SET NULL with foreign keys enabled, and the
+    // pool does not turn them on, so unfiling is explicit.
+    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
+    sqlx::query("UPDATE videos SET folder_id=NULL WHERE folder_id=?")
+        .bind(id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
+    let result = sqlx::query("DELETE FROM folders WHERE id=?")
+        .bind(id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
+    if result.rows_affected() == 0 {
+        return Err("Folder not found.".to_string());
+    }
+    tx.commit().await.map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+async fn move_video_for(
+    pool: &SqlitePool,
+    video_id: &str,
+    folder_id: Option<&str>,
+) -> Result<(), String> {
+    if let Some(folder) = folder_id {
+        let exists: Option<(i64,)> = sqlx::query_as("SELECT 1 FROM folders WHERE id=?")
+            .bind(folder)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| e.to_string())?;
+        if exists.is_none() {
+            return Err("Folder not found.".to_string());
+        }
+    }
+    let result = sqlx::query("UPDATE videos SET folder_id=? WHERE id=?")
+        .bind(folder_id)
+        .bind(video_id)
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    if result.rows_affected() == 0 {
+        return Err("Video not found.".to_string());
+    }
+    Ok(())
+}
+
+async fn remove_video_for(pool: &SqlitePool, video_id: &str, delete_file: bool) -> Result<(), String> {
+    let row: Option<(Option<String>, Option<String>)> =
+        sqlx::query_as("SELECT file_path, thumbnail_path FROM videos WHERE id=?")
+            .bind(video_id)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| e.to_string())?;
+    let (file_path, thumbnail_path) = row.ok_or_else(|| "Video not found.".to_string())?;
+
+    // A queued or running download owns its queue row; deleting it here would
+    // orphan the yt-dlp process with no way left to cancel it.
+    let active: Option<(i64,)> = sqlx::query_as(
+        "SELECT 1 FROM queue_items WHERE video_id=? AND status IN ('queued','downloading')",
+    )
+    .bind(video_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| e.to_string())?;
+    if active.is_some() {
+        return Err("Cancel this download in Downloads before removing the video.".to_string());
+    }
+
+    // The queue foreign key cascades only with foreign keys enabled, so clear the
+    // rows explicitly or a removed video leaves a dead entry in Downloads.
+    sqlx::query("DELETE FROM queue_items WHERE video_id=?")
+        .bind(video_id)
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    sqlx::query("DELETE FROM videos WHERE id=?")
+        .bind(video_id)
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if delete_file {
+        for path in [file_path, thumbnail_path].into_iter().flatten() {
+            match std::fs::remove_file(&path) {
+                Ok(()) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => return Err(format!("Removed the entry, but could not delete {path}: {e}")),
+            }
+        }
+    }
+    Ok(())
+}
+
 #[tauri::command]
-pub async fn list_playlists(state: tauri::State<'_, DbState>) -> Result<Vec<Playlist>, String> {
-    let rows = sqlx::query_as::<_, (String, String, String, String, Option<String>)>(
+pub async fn list_folders(state: tauri::State<'_, DbState>) -> Result<Vec<Folder>, String> {
+    list_folders_for(&state.pool).await
+}
+
+#[tauri::command]
+pub async fn create_folder(state: tauri::State<'_, DbState>, name: String) -> Result<Folder, String> {
+    create_folder_for(&state.pool, &name).await
+}
+
+#[tauri::command]
+pub async fn rename_folder(
+    state: tauri::State<'_, DbState>,
+    id: String,
+    name: String,
+) -> Result<(), String> {
+    rename_folder_for(&state.pool, &id, &name).await
+}
+
+#[tauri::command]
+pub async fn delete_folder(state: tauri::State<'_, DbState>, id: String) -> Result<(), String> {
+    delete_folder_for(&state.pool, &id).await
+}
+
+#[tauri::command]
+pub async fn move_video(
+    state: tauri::State<'_, DbState>,
+    video_id: String,
+    folder_id: Option<String>,
+) -> Result<(), String> {
+    move_video_for(&state.pool, &video_id, folder_id.as_deref()).await
+}
+
+#[tauri::command]
+pub async fn remove_video(
+    state: tauri::State<'_, DbState>,
+    video_id: String,
+    delete_file: bool,
+) -> Result<(), String> {
+    remove_video_for(&state.pool, &video_id, delete_file).await
+}
+
+#[tauri::command]
+pub async fn list_playlists(state: tauri::State<'_, DbState>) -> Result<Vec<Playlist>, String> {    let rows = sqlx::query_as::<_, (String, String, String, String, Option<String>)>(
         "SELECT id, title, source, url, thumbnail_path FROM playlists ORDER BY title"
     ).fetch_all(&state.pool).await.map_err(|e| e.to_string())?;
     Ok(rows.into_iter().map(|r| Playlist { id: r.0, title: r.1, source: r.2, url: r.3, thumbnail_path: r.4 }).collect())
@@ -237,10 +449,11 @@ pub async fn fetch_playlist_info(
 
 #[tauri::command]
 pub async fn add_video(state: tauri::State<'_, DbState>, video: Video) -> Result<(), String> {
-    sqlx::query("INSERT OR IGNORE INTO videos (id, title, uploader, duration, thumbnail_path, source, url, file_path, file_size, downloaded_at, last_position, watched, playlist_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
+    sqlx::query("INSERT OR IGNORE INTO videos (id, title, uploader, duration, thumbnail_path, source, url, file_path, file_size, downloaded_at, last_position, watched, playlist_id, folder_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
         .bind(&video.id).bind(&video.title).bind(&video.uploader).bind(&video.duration).bind(&video.thumbnail_path)
         .bind(&video.source).bind(&video.url).bind(&video.file_path).bind(&video.file_size).bind(&video.downloaded_at)
         .bind(&video.last_position).bind(if video.watched {1i64} else {0i64}).bind(&video.playlist_id)
+        .bind(&video.folder_id)
         .execute(&state.pool).await.map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -455,5 +668,168 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(count.0, 1);
+    }
+
+    async fn insert_video_row(pool: &SqlitePool, id: &str, folder_id: Option<&str>) {
+        insert_video_row_at(pool, id, folder_id, &format!("/tmp/{id}.mp4")).await;
+    }
+
+    async fn insert_video_row_at(
+        pool: &SqlitePool,
+        id: &str,
+        folder_id: Option<&str>,
+        file_path: &str,
+    ) {
+        sqlx::query(
+            "INSERT INTO videos (id, title, source, url, file_path, last_position, watched, folder_id) \
+             VALUES (?,?,?,?,?,0,0,?)",
+        )
+        .bind(id)
+        .bind(format!("Video {id}"))
+        .bind("Youtube")
+        .bind(format!("https://example.com/{id}"))
+        .bind(file_path)
+        .bind(folder_id)
+        .execute(pool)
+        .await
+        .unwrap();
+    }
+
+    async fn folder_id_of(pool: &SqlitePool, video_id: &str) -> Option<String> {
+        sqlx::query_scalar::<_, Option<String>>("SELECT folder_id FROM videos WHERE id=?")
+            .bind(video_id)
+            .fetch_one(pool)
+            .await
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn folders_trim_names_and_reject_duplicates() {
+        let pool = test_pool().await;
+
+        assert!(create_folder_for(&pool, "   ").await.is_err());
+        let folder = create_folder_for(&pool, "  Watch later  ").await.unwrap();
+        assert_eq!(folder.name, "Watch later");
+        assert_eq!(folder.video_count, 0);
+
+        let duplicate = create_folder_for(&pool, "watch LATER").await.unwrap_err();
+        assert!(duplicate.contains("already exists"), "{duplicate}");
+
+        assert_eq!(list_folders_for(&pool).await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn renaming_a_folder_keeps_names_unique() {
+        let pool = test_pool().await;
+        let first = create_folder_for(&pool, "Music").await.unwrap();
+        let second = create_folder_for(&pool, "Talks").await.unwrap();
+
+        let clash = rename_folder_for(&pool, &second.id, " music ").await.unwrap_err();
+        assert!(clash.contains("already exists"), "{clash}");
+
+        rename_folder_for(&pool, &second.id, "  Long talks ").await.unwrap();
+        let names: Vec<String> = list_folders_for(&pool)
+            .await
+            .unwrap()
+            .into_iter()
+            .map(|f| f.name)
+            .collect();
+        assert_eq!(names, vec!["Long talks", "Music"]);
+        assert!(rename_folder_for(&pool, &first.id, "").await.is_err());
+        assert!(rename_folder_for(&pool, "missing", "Any").await.is_err());
+    }
+
+    #[tokio::test]
+    async fn deleting_a_folder_unfiles_its_videos() {
+        let pool = test_pool().await;
+        let folder = create_folder_for(&pool, "Keepers").await.unwrap();
+        insert_video_row(&pool, "v1", Some(&folder.id)).await;
+        insert_video_row(&pool, "v2", None).await;
+
+        assert_eq!(list_folders_for(&pool).await.unwrap()[0].video_count, 1);
+
+        delete_folder_for(&pool, &folder.id).await.unwrap();
+        assert!(list_folders_for(&pool).await.unwrap().is_empty());
+        assert_eq!(folder_id_of(&pool, "v1").await, None);
+        assert_eq!(folder_id_of(&pool, "v2").await, None);
+
+        let videos: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM videos")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(videos.0, 2);
+        assert!(delete_folder_for(&pool, &folder.id).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn moving_videos_updates_folder_counts() {
+        let pool = test_pool().await;
+        let folder = create_folder_for(&pool, "Research").await.unwrap();
+        insert_video_row(&pool, "v1", None).await;
+
+        move_video_for(&pool, "v1", Some(&folder.id)).await.unwrap();
+        assert_eq!(folder_id_of(&pool, "v1").await.as_deref(), Some(folder.id.as_str()));
+        assert_eq!(list_folders_for(&pool).await.unwrap()[0].video_count, 1);
+
+        move_video_for(&pool, "v1", None).await.unwrap();
+        assert_eq!(folder_id_of(&pool, "v1").await, None);
+        assert_eq!(list_folders_for(&pool).await.unwrap()[0].video_count, 0);
+
+        assert!(move_video_for(&pool, "v1", Some("nope")).await.is_err());
+        assert!(move_video_for(&pool, "missing", None).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn removing_a_video_keeps_or_deletes_the_file() {
+        let pool = test_pool().await;
+        let dir = std::env::temp_dir().join(format!("yank-remove-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let kept = dir.join("kept.mp4");
+        let deleted = dir.join("deleted.mp4");
+        std::fs::write(&kept, b"x").unwrap();
+        std::fs::write(&deleted, b"x").unwrap();
+
+        insert_video_row_at(&pool, "kept", None, &kept.to_string_lossy()).await;
+        insert_video_row_at(&pool, "deleted", None, &deleted.to_string_lossy()).await;
+        for id in ["kept", "deleted"] {
+            sqlx::query(
+                "INSERT INTO queue_items (id, video_id, status, progress, created_at) VALUES (?,?, 'done', 100, 0)",
+            )
+            .bind(format!("q-{id}"))
+            .bind(id)
+            .execute(&pool)
+            .await
+            .unwrap();
+        }
+
+        remove_video_for(&pool, "kept", false).await.unwrap();
+        assert!(kept.exists());
+        remove_video_for(&pool, "deleted", true).await.unwrap();
+        assert!(!deleted.exists());
+
+        insert_video_row(&pool, "busy", None).await;
+        sqlx::query(
+            "INSERT INTO queue_items (id, video_id, status, created_at) VALUES ('q-busy','busy','downloading',0)",
+        )
+        .execute(&pool)
+        .await
+        .unwrap();
+        let blocked = remove_video_for(&pool, "busy", false).await.unwrap_err();
+        assert!(blocked.contains("Cancel this download"), "{blocked}");
+        assert_eq!(folder_id_of(&pool, "busy").await, None);
+
+        let videos: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM videos")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        let queue: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM queue_items")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(videos.0, 1);
+        assert_eq!(queue.0, 1);
+        assert!(remove_video_for(&pool, "kept", false).await.is_err());
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

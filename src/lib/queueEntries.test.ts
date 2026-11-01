@@ -24,6 +24,7 @@ const video = (id: string, overrides: Partial<Video> = {}): Video => ({
   file_path: null,
   watched: false,
   last_position: 0,
+  folder_id: null,
   ...overrides,
 });
 

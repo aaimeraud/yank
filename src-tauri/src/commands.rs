@@ -56,7 +56,7 @@ pub async fn list_playlists(state: tauri::State<'_, DbState>) -> Result<Vec<Play
 #[tauri::command]
 pub async fn list_queue(state: tauri::State<'_, DbState>) -> Result<Vec<crate::models::QueueItem>, String> {
     let rows = sqlx::query_as::<_, (String, Option<String>, String, f64, Option<String>, Option<String>, Option<String>, i64)>(
-        "SELECT id, video_id, status, progress, speed, eta, error, created_at FROM queue_items ORDER BY created_at"
+        "SELECT id, video_id, status, progress, speed, eta, error, created_at FROM queue_items ORDER BY created_at, rowid"
     ).fetch_all(&state.pool).await.map_err(|e| e.to_string())?;
     Ok(rows.into_iter().map(|r| crate::models::QueueItem { id: r.0, video_id: r.1, status: r.2, progress: r.3, speed: r.4, eta: r.5, error: r.6, created_at: r.7 }).collect())
 }
@@ -242,6 +242,50 @@ pub async fn cancel_download(
 ) -> Result<(), String> {
     download::cancel_download(&state.pool, downloads.inner(), queue_id).await
 }
+
+#[tauri::command]
+pub async fn pause_download(
+    state: tauri::State<'_, DbState>,
+    downloads: tauri::State<'_, DownloadState>,
+    queue_id: String,
+) -> Result<(), String> {
+    download::pause_download(&state.pool, downloads.inner(), queue_id).await
+}
+
+#[tauri::command]
+pub async fn resume_download(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, DbState>,
+    downloads: tauri::State<'_, DownloadState>,
+    queue_id: String,
+    format_pref: String,
+    download_dir: String,
+) -> Result<(), String> {
+    download::resume_download(
+        app,
+        state.pool.clone(),
+        downloads.inner().clone(),
+        queue_id,
+        format_pref,
+        download_dir,
+    )
+    .await
+}
+
+#[tauri::command]
+pub async fn remove_download(
+    state: tauri::State<'_, DbState>,
+    downloads: tauri::State<'_, DownloadState>,
+    queue_id: String,
+) -> Result<(), String> {
+    download::remove_download(&state.pool, downloads.inner(), queue_id).await
+}
+
+#[tauri::command]
+pub async fn clear_finished_downloads(state: tauri::State<'_, DbState>) -> Result<(), String> {
+    download::clear_finished_downloads(&state.pool).await
+}
+
 #[tauri::command]
 pub async fn update_playback(state: tauri::State<'_, DbState>, video_id: String, position: i64, watched: bool) -> Result<(), String> {
     sqlx::query("UPDATE videos SET last_position=?, watched=? WHERE id=?")

@@ -29,8 +29,8 @@ pub fn run() {
             commands::fetch_playlist_entries,
             commands::add_video,
             commands::add_playlist,
-            commands::start_download_cmd,
-            commands::cancel_download_cmd,
+            commands::start_download,
+            commands::cancel_download,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

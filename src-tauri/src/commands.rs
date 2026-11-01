@@ -115,8 +115,8 @@ pub async fn add_playlist(state: tauri::State<'_, DbState>, playlist: Playlist) 
     Ok(())
 }
 
-#[tauri::command(name = "start_download")]
-pub async fn start_download_cmd(
+#[tauri::command]
+pub async fn start_download(
     app: tauri::AppHandle,
     state: tauri::State<'_, DbState>,
     video_id: String,
@@ -127,7 +127,7 @@ pub async fn start_download_cmd(
     download::start_download(app, state.pool.clone(), video_id, url, format_pref, download_dir).await
 }
 
-#[tauri::command(name = "cancel_download")]
-pub async fn cancel_download_cmd(state: tauri::State<'_, DbState>, queue_id: String) -> Result<(), String> {
+#[tauri::command]
+pub async fn cancel_download(state: tauri::State<'_, DbState>, queue_id: String) -> Result<(), String> {
     download::cancel_download(&state.pool, queue_id).await
 }

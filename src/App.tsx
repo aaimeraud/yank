@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import "./App.css";
 
 type View = "library" | "downloads" | "settings";
@@ -16,34 +17,78 @@ interface Video {
   watched: boolean;
 }
 
-interface Settings {
-  download_dir: string | null;
-  default_quality: string | null;
-  concurrency: string | null;
-  theme: string | null;
+interface QueueItem {
+  id: string;
+  video_id: string | null;
+  status: string;
+  progress: number;
+  speed: string | null;
+  eta: string | null;
+  error: string | null;
+  created_at: number;
+}
+
+interface Metadata {
+  id: string;
+  title: string;
+  uploader: string | null;
+  duration: number | null;
+  thumbnail: string | null;
+  extractor: string | null;
+  webpage_url: string | null;
 }
 
 export default function App() {
   const [view, setView] = useState<View>("library");
   const [videos, setVideos] = useState<Video[]>([]);
-  const [settings, setSettings] = useState<Settings>({
-    download_dir: null,
-    default_quality: null,
-    concurrency: null,
-    theme: null,
-  });
+  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [settings, setSettings] = useState({ download_dir: null as string | null, default_quality: null as string | null });
+
+  const refresh = async () => {
+    setVideos(await invoke<Video[]>("list_videos"));
+    setQueue(await invoke<QueueItem[]>("list_queue"));
+  };
 
   useEffect(() => {
+    refresh();
     (async () => {
-      const vs = await invoke<Video[]>("list_videos");
-      setVideos(vs);
       const dd = await invoke<string | null>("get_setting", { key: "download_dir" });
       const dq = await invoke<string | null>("get_setting", { key: "default_quality" });
-      const cc = await invoke<string | null>("get_setting", { key: "concurrency" });
-      const th = await invoke<string | null>("get_setting", { key: "theme" });
-      setSettings({ download_dir: dd, default_quality: dq, concurrency: cc, theme: th });
+      setSettings({ download_dir: dd, default_quality: dq });
     })();
+    const unlisten = listen<any>("download-progress", (e) => {
+      const p = e.payload;
+      setQueue((q) => q.map((item) => item.id === p.queue_id ? { ...item, status: p.status, progress: p.progress ?? item.progress, speed: p.speed ?? item.speed, eta: p.eta ?? item.eta, error: p.error ?? item.error } : item));
+      if (p.status === "done") refresh();
+    });
+    return () => { unlisten.then((f) => f()); };
   }, []);
+
+  const download = async () => {
+    if (!url.trim() || busy) return;
+    setBusy(true);
+    try {
+      const meta = await invoke<Metadata>("fetch_metadata", { url });
+      const source = meta.extractor ?? "Other";
+      const videoId = meta.id || crypto.randomUUID();
+      await invoke("add_video", { video: {
+        id: videoId, title: meta.title, uploader: meta.uploader, duration: meta.duration,
+        thumbnail_path: null, source, url: meta.webpage_url ?? url, file_path: null,
+        file_size: null, downloaded_at: null, last_position: 0, watched: false, playlist_id: null,
+      }});
+      const dir = settings.download_dir ?? (await invoke<string>("get_setting", { key: "download_dir" })) ?? "";
+      if (!dir) { alert("Pick a downloads folder in Settings first."); setBusy(false); return; }
+      await invoke("start_download", { videoId, url, formatPref: "video", downloadDir: dir });
+      setUrl("");
+      await refresh();
+    } catch (e) {
+      alert(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const pickFolder = async () => {
     const folder = await invoke<string | null>("pick_folder");
@@ -58,24 +103,20 @@ export default function App() {
       <aside className="sidebar">
         <h1 className="logo">Yank</h1>
         <nav>
-          <button className={view === "library" ? "active" : ""} onClick={() => setView("library")}>
-            Library
-          </button>
-          <button className={view === "downloads" ? "active" : ""} onClick={() => setView("downloads")}>
-            Downloads
-          </button>
-          <button className={view === "settings" ? "active" : ""} onClick={() => setView("settings")}>
-            Settings
-          </button>
+          <button className={view === "library" ? "active" : ""} onClick={() => setView("library")}>Library</button>
+          <button className={view === "downloads" ? "active" : ""} onClick={() => setView("downloads")}>Downloads</button>
+          <button className={view === "settings" ? "active" : ""} onClick={() => setView("settings")}>Settings</button>
         </nav>
+        <div className="urlbox">
+          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Paste URL…" onKeyDown={(e) => e.key === "Enter" && download()} />
+          <button onClick={download} disabled={busy}>{busy ? "…" : "Download"}</button>
+        </div>
       </aside>
       <main className="content">
         {view === "library" && (
           <section>
             <h2>Library</h2>
-            {videos.length === 0 ? (
-              <p className="empty">No videos yet. Download something to get started.</p>
-            ) : (
+            {videos.length === 0 ? <p className="empty">No videos yet.</p> : (
               <div className="grid">
                 {videos.map((v) => (
                   <div key={v.id} className="card">
@@ -91,7 +132,19 @@ export default function App() {
         {view === "downloads" && (
           <section>
             <h2>Downloads</h2>
-            <p className="empty">Queue coming soon.</p>
+            {queue.length === 0 ? <p className="empty">No downloads.</p> : (
+              <ul className="queue">
+                {queue.map((q) => (
+                  <li key={q.id}>
+                    <span>{q.status}</span>
+                    <progress value={q.progress} max={100} />
+                    <span>{q.progress.toFixed(0)}%</span>
+                    {q.speed && <span className="muted">{q.speed}</span>}
+                    {q.error && <span className="err">{q.error}</span>}
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         )}
         {view === "settings" && (
@@ -103,14 +156,6 @@ export default function App() {
                 <span>{settings.download_dir ?? "Not set"}</span>
                 <button onClick={pickFolder}>Choose…</button>
               </div>
-            </div>
-            <div className="setting">
-              <label>Default quality</label>
-              <span>{settings.default_quality ?? "best (MP4)"}</span>
-            </div>
-            <div className="setting">
-              <label>Concurrency</label>
-              <span>{settings.concurrency ?? "2"}</span>
             </div>
           </section>
         )}

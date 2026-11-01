@@ -55,4 +55,11 @@ body {
 .setting { margin-bottom: 16px; }
 .setting label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
 .setting .row { display: flex; align-items: center; gap: 12px; }
-.setting button { padding: 6px 10px; border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 6px; cursor: pointer; }
+.urlbox { margin-top: 16px; display: flex; flex-direction: column; gap: 6px; }
+.urlbox input { padding: 8px; border: 1px solid var(--border); background: var(--panel); color: var(--text); border-radius: 6px; }
+.urlbox button { padding: 8px; border: none; background: var(--accent); color: #0b0d11; border-radius: 6px; cursor: pointer; font-weight: 600; }
+.queue { list-style: none; padding: 0; }
+.queue li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.queue progress { flex: 1; }
+.muted { color: var(--muted); font-size: 12px; }
+.err { color: #ff6b6b; font-size: 12px; }

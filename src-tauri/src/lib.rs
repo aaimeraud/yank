@@ -3,7 +3,10 @@ use sqlx::sqlite::{SqlitePool, SqlitePoolOptions};
 use sqlx::migrate::MigrateDatabase;
 use sqlx::Sqlite;
 use std::path::PathBuf;
-use tauri::Manager;
+use std::process::Stdio;
+use tauri::{Emitter, Manager};
+use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::process::Command;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Video {
@@ -43,6 +46,17 @@ pub struct QueueItem {
     pub created_at: i64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Metadata {
+    pub id: String,
+    pub title: String,
+    pub uploader: Option<String>,
+    pub duration: Option<i64>,
+    pub thumbnail: Option<String>,
+    pub extractor: Option<String>,
+    pub webpage_url: Option<String>,
+}
+
 pub struct DbState {
     pub pool: SqlitePool,
 }
@@ -71,24 +85,27 @@ pub async fn init_db(app: &tauri::AppHandle) -> SqlitePool {
     pool
 }
 
+fn find_ytdlp() -> String {
+    if let Ok(p) = std::env::var("YTDLP_PATH") { if std::path::Path::new(&p).exists() { return p; } }
+    for c in ["yt-dlp", "/opt/homebrew/bin/yt-dlp", "/usr/local/bin/yt-dlp", "/usr/bin/yt-dlp"] {
+        if std::process::Command::new(c).arg("--version").output().map(|o| o.status.success()).unwrap_or(false) {
+            return c.to_string();
+        }
+    }
+    "yt-dlp".to_string()
+}
+
 #[tauri::command]
 async fn get_setting(state: tauri::State<'_, DbState>, key: String) -> Result<Option<String>, String> {
     let row: Option<(String,)> = sqlx::query_as("SELECT value FROM settings WHERE key = ?")
-        .bind(&key)
-        .fetch_optional(&state.pool)
-        .await
-        .map_err(|e| e.to_string())?;
+        .bind(&key).fetch_optional(&state.pool).await.map_err(|e| e.to_string())?;
     Ok(row.map(|r| r.0))
 }
 
 #[tauri::command]
 async fn set_setting(state: tauri::State<'_, DbState>, key: String, value: String) -> Result<(), String> {
     sqlx::query("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
-        .bind(&key)
-        .bind(&value)
-        .execute(&state.pool)
-        .await
-        .map_err(|e| e.to_string())?;
+        .bind(&key).bind(&value).execute(&state.pool).await.map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -96,71 +113,27 @@ async fn set_setting(state: tauri::State<'_, DbState>, key: String, value: Strin
 async fn list_videos(state: tauri::State<'_, DbState>) -> Result<Vec<Video>, String> {
     let rows = sqlx::query_as::<_, (String, String, Option<String>, Option<i64>, Option<String>, String, String, Option<String>, Option<i64>, Option<i64>, i64, i64, Option<String>)>(
         "SELECT id, title, uploader, duration, thumbnail_path, source, url, file_path, file_size, downloaded_at, last_position, watched, playlist_id FROM videos ORDER BY downloaded_at DESC"
-    )
-    .fetch_all(&state.pool)
-    .await
-    .map_err(|e| e.to_string())?;
-    Ok(rows
-        .into_iter()
-        .map(|r| Video {
-            id: r.0,
-            title: r.1,
-            uploader: r.2,
-            duration: r.3,
-            thumbnail_path: r.4,
-            source: r.5,
-            url: r.6,
-            file_path: r.7,
-            file_size: r.8,
-            downloaded_at: r.9,
-            last_position: r.10,
-            watched: r.11 != 0,
-            playlist_id: r.12,
-        })
-        .collect())
+    ).fetch_all(&state.pool).await.map_err(|e| e.to_string())?;
+    Ok(rows.into_iter().map(|r| Video {
+        id: r.0, title: r.1, uploader: r.2, duration: r.3, thumbnail_path: r.4, source: r.5, url: r.6,
+        file_path: r.7, file_size: r.8, downloaded_at: r.9, last_position: r.10, watched: r.11 != 0, playlist_id: r.12,
+    }).collect())
 }
 
 #[tauri::command]
 async fn list_playlists(state: tauri::State<'_, DbState>) -> Result<Vec<Playlist>, String> {
     let rows = sqlx::query_as::<_, (String, String, String, String, Option<String>)>(
         "SELECT id, title, source, url, thumbnail_path FROM playlists ORDER BY title"
-    )
-    .fetch_all(&state.pool)
-    .await
-    .map_err(|e| e.to_string())?;
-    Ok(rows
-        .into_iter()
-        .map(|r| Playlist {
-            id: r.0,
-            title: r.1,
-            source: r.2,
-            url: r.3,
-            thumbnail_path: r.4,
-        })
-        .collect())
+    ).fetch_all(&state.pool).await.map_err(|e| e.to_string())?;
+    Ok(rows.into_iter().map(|r| Playlist { id: r.0, title: r.1, source: r.2, url: r.3, thumbnail_path: r.4 }).collect())
 }
 
 #[tauri::command]
 async fn list_queue(state: tauri::State<'_, DbState>) -> Result<Vec<QueueItem>, String> {
     let rows = sqlx::query_as::<_, (String, Option<String>, String, f64, Option<String>, Option<String>, Option<String>, i64)>(
         "SELECT id, video_id, status, progress, speed, eta, error, created_at FROM queue_items ORDER BY created_at"
-    )
-    .fetch_all(&state.pool)
-    .await
-    .map_err(|e| e.to_string())?;
-    Ok(rows
-        .into_iter()
-        .map(|r| QueueItem {
-            id: r.0,
-            video_id: r.1,
-            status: r.2,
-            progress: r.3,
-            speed: r.4,
-            eta: r.5,
-            error: r.6,
-            created_at: r.7,
-        })
-        .collect())
+    ).fetch_all(&state.pool).await.map_err(|e| e.to_string())?;
+    Ok(rows.into_iter().map(|r| QueueItem { id: r.0, video_id: r.1, status: r.2, progress: r.3, speed: r.4, eta: r.5, error: r.6, created_at: r.7 }).collect())
 }
 
 #[tauri::command]
@@ -168,6 +141,133 @@ async fn pick_folder(app: tauri::AppHandle) -> Result<Option<String>, String> {
     use tauri_plugin_dialog::DialogExt;
     let folder = app.dialog().file().blocking_pick_folder();
     Ok(folder.map(|p| p.to_string()))
+}
+
+#[tauri::command]
+async fn fetch_metadata(url: String) -> Result<Metadata, String> {
+    let ytdlp = find_ytdlp();
+    let output = Command::new(&ytdlp).args(["--dump-json", "--no-playlist", &url]).output().await.map_err(|e| e.to_string())?;
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).to_string());
+    }
+    let v: serde_json::Value = serde_json::from_slice(&output.stdout).map_err(|e| e.to_string())?;
+    Ok(Metadata {
+        id: v.get("id").and_then(|x| x.as_str()).unwrap_or("").to_string(),
+        title: v.get("title").and_then(|x| x.as_str()).unwrap_or("Unknown").to_string(),
+        uploader: v.get("uploader").and_then(|x| x.as_str()).map(|s| s.to_string()).or_else(|| v.get("channel").and_then(|x| x.as_str()).map(|s| s.to_string())),
+        duration: v.get("duration").and_then(|x| x.as_i64()),
+        thumbnail: v.get("thumbnail").and_then(|x| x.as_str()).map(|s| s.to_string()),
+        extractor: v.get("extractor").and_then(|x| x.as_str()).map(|s| s.to_string()),
+        webpage_url: v.get("webpage_url").and_then(|x| x.as_str()).map(|s| s.to_string()),
+    })
+}
+
+#[tauri::command]
+async fn add_video(state: tauri::State<'_, DbState>, video: Video) -> Result<(), String> {
+    sqlx::query("INSERT OR IGNORE INTO videos (id, title, uploader, duration, thumbnail_path, source, url, file_path, file_size, downloaded_at, last_position, watched, playlist_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
+        .bind(&video.id).bind(&video.title).bind(&video.uploader).bind(&video.duration).bind(&video.thumbnail_path)
+        .bind(&video.source).bind(&video.url).bind(&video.file_path).bind(&video.file_size).bind(&video.downloaded_at)
+        .bind(&video.last_position).bind(if video.watched {1i64} else {0i64}).bind(&video.playlist_id)
+        .execute(&state.pool).await.map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[derive(Deserialize)]
+struct ProgressPayload { percent: Option<f64>, speed: Option<String>, eta: Option<String> }
+
+#[tauri::command]
+async fn start_download(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, DbState>,
+    video_id: String,
+    url: String,
+    format_pref: String,
+    download_dir: String,
+) -> Result<String, String> {
+    let queue_id = uuid::Uuid::new_v4().to_string();
+    let now = chrono::Utc::now().timestamp();
+    sqlx::query("INSERT INTO queue_items (id, video_id, status, created_at) VALUES (?,?,?,?)")
+        .bind(&queue_id).bind(&video_id).bind("downloading").bind(now)
+        .execute(&state.pool).await.map_err(|e| e.to_string())?;
+
+    let pool = state.pool.clone();
+    let app2 = app.clone();
+    let format_arg = match format_pref.as_str() {
+        "audio" => "bestaudio[ext=m4a]/bestaudio".to_string(),
+        "original" => "best".to_string(),
+        _ => "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best".to_string(),
+    };
+    let ext = if format_pref == "audio" { "m4a" } else { "mp4" };
+    let template = format!("{}/%(playlist_title|channel|uploader)s/%(title)s [%(id)s].{}", download_dir, ext);
+
+    let queue_id_ret = queue_id.clone();
+    tokio::spawn(async move {
+        let ytdlp = find_ytdlp();
+        let mut cmd = Command::new(&ytdlp);
+        cmd.args([
+            "-f", &format_arg,
+            "--newline",
+            "--progress-template", r#"{"percent":%(progress._percent)s,"speed":"%(progress.speed)s","eta":"%(progress.eta)s"}"#,
+            "--write-thumbnail", "--convert-thumbnails", "jpg",
+            "-o", &template,
+            &url,
+        ]);
+        cmd.stdout(Stdio::piped());
+        cmd.stderr(Stdio::piped());
+
+        let mut child = match cmd.spawn() {
+            Ok(c) => c,
+            Err(e) => {
+                let _ = sqlx::query("UPDATE queue_items SET status='failed', error=? WHERE id=?")
+                    .bind(e.to_string()).bind(&queue_id).execute(&pool).await;
+                let _ = app2.emit("download-progress", serde_json::json!({"queue_id": queue_id, "status":"failed","error": e.to_string()}));
+                return;
+            }
+        };
+
+        let stdout = child.stdout.take().unwrap();
+        let mut reader = BufReader::new(stdout).lines();
+        let mut final_file: Option<String> = None;
+        while let Ok(Some(line)) = reader.next_line().await {
+            if let Ok(p) = serde_json::from_str::<ProgressPayload>(&line) {
+                let percent = p.percent.unwrap_or(0.0);
+                let _ = sqlx::query("UPDATE queue_items SET progress=?, speed=?, eta=? WHERE id=?")
+                    .bind(percent).bind(&p.speed).bind(&p.eta).bind(&queue_id).execute(&pool).await;
+                let _ = app2.emit("download-progress", serde_json::json!({
+                    "queue_id": queue_id, "status":"downloading", "progress": percent, "speed": p.speed, "eta": p.eta
+                }));
+            }
+            if line.contains("Destination:") {
+                if let Some(path) = line.split("Destination:").nth(1) {
+                    final_file = Some(path.trim().to_string());
+                }
+            }
+        }
+        let status = child.wait().await;
+        let success = status.map(|s| s.success()).unwrap_or(false);
+        if success {
+            let _ = sqlx::query("UPDATE queue_items SET status='done', progress=100 WHERE id=?")
+                .bind(&queue_id).execute(&pool).await;
+            if let Some(fp) = &final_file {
+                let _ = sqlx::query("UPDATE videos SET file_path=?, downloaded_at=? WHERE id=?")
+                    .bind(fp).bind(chrono::Utc::now().timestamp()).bind(&video_id).execute(&pool).await;
+            }
+            let _ = app2.emit("download-progress", serde_json::json!({"queue_id": queue_id, "status":"done","progress":100.0, "file_path": final_file}));
+        } else {
+            let _ = sqlx::query("UPDATE queue_items SET status='failed', error='yt-dlp failed' WHERE id=?")
+                .bind(&queue_id).execute(&pool).await;
+            let _ = app2.emit("download-progress", serde_json::json!({"queue_id": queue_id, "status":"failed","error":"yt-dlp failed"}));
+        }
+    });
+
+    Ok(queue_id_ret)
+}
+
+#[tauri::command]
+async fn cancel_download(state: tauri::State<'_, DbState>, queue_id: String) -> Result<(), String> {
+    sqlx::query("UPDATE queue_items SET status='cancelled' WHERE id=?")
+        .bind(&queue_id).execute(&state.pool).await.map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -182,12 +282,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            get_setting,
-            set_setting,
-            list_videos,
-            list_playlists,
-            list_queue,
-            pick_folder
+            get_setting, set_setting, list_videos, list_playlists, list_queue, pick_folder,
+            fetch_metadata, add_video, start_download, cancel_download
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

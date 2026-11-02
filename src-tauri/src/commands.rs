@@ -21,8 +21,8 @@ pub async fn set_setting(state: tauri::State<'_, DbState>, key: String, value: S
 
 #[tauri::command]
 pub async fn list_videos(state: tauri::State<'_, DbState>) -> Result<Vec<Video>, String> {
-    let rows = sqlx::query_as::<_, (String, String, Option<String>, Option<i64>, Option<String>, String, String, Option<String>, Option<i64>, Option<i64>, i64, i64, Option<String>, Option<String>)>(
-        "SELECT id, title, uploader, duration, thumbnail_path, source, url, file_path, file_size, downloaded_at, last_position, watched, playlist_id, folder_id FROM videos ORDER BY downloaded_at DESC"
+    let rows = sqlx::query_as::<_, (String, String, Option<String>, Option<i64>, Option<String>, String, String, Option<String>, Option<i64>, Option<i64>, i64, i64, Option<String>, Option<String>, Option<i64>)>(
+        "SELECT id, title, uploader, duration, thumbnail_path, source, url, file_path, file_size, downloaded_at, last_position, watched, playlist_id, folder_id, playlist_index FROM videos ORDER BY downloaded_at DESC"
     ).fetch_all(&state.pool).await.map_err(|e| e.to_string())?;
     let mut videos = Vec::with_capacity(rows.len());
     for r in rows {
@@ -39,7 +39,7 @@ pub async fn list_videos(state: tauri::State<'_, DbState>) -> Result<Vec<Video>,
         videos.push(Video {
             id: r.0, title: r.1, uploader: r.2, duration: r.3, thumbnail_path: thumbnail, source: r.5, url: r.6,
             file_path: r.7, file_size: r.8, downloaded_at: r.9, last_position: r.10, watched: r.11 != 0, playlist_id: r.12,
-            folder_id: r.13,
+            folder_id: r.13, playlist_index: r.14,
         });
     }
     Ok(videos)
@@ -290,6 +290,19 @@ async fn ensure_playlist_folder_for(
         query.execute(pool).await.map_err(|e| e.to_string())?;
     }
 
+    // Record where each entry sits. This covers videos downloaded before the
+    // position column existed, and keeps a reordered playlist in order the next
+    // time it is added. New rows get their index from add_video.
+    for (position, id) in entry_ids.iter().enumerate() {
+        sqlx::query("UPDATE videos SET playlist_index=? WHERE id=? AND playlist_id=?")
+            .bind((position + 1) as i64)
+            .bind(id)
+            .bind(playlist_id)
+            .execute(pool)
+            .await
+            .map_err(|e| e.to_string())?;
+    }
+
     Ok(folder_id)
 }
 
@@ -424,6 +437,8 @@ pub async fn fetch_metadata(state: tauri::State<'_, DbState>, url: String) -> Re
         thumbnail: v.get("thumbnail").and_then(|x| x.as_str()).map(|s| s.to_string()),
         extractor: v.get("extractor").and_then(|x| x.as_str()).map(|s| s.to_string()),
         webpage_url: v.get("webpage_url").and_then(|x| x.as_str()).map(|s| s.to_string()),
+        index: 1,
+        total: 1,
     })
 }
 
@@ -490,6 +505,8 @@ fn value_to_metadata(v: &Value) -> Metadata {
         thumbnail: thumbnail_of(v),
         extractor: extractor_of(v),
         webpage_url: normalize_url(v),
+        index: 1,
+        total: 1,
     }
 }
 
@@ -497,7 +514,7 @@ fn parse_playlist_output(bytes: &[u8]) -> Result<PlaylistInfo, String> {
     let root: Value = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
     let is_playlist = root.get("_type").and_then(|x| x.as_str()) == Some("playlist")
         || root.get("entries").and_then(|x| x.as_array()).is_some();
-    let entries: Vec<Metadata> = if is_playlist {
+    let mut entries: Vec<Metadata> = if is_playlist {
         root.get("entries")
             .and_then(|x| x.as_array())
             .map(|a| {
@@ -511,6 +528,14 @@ fn parse_playlist_output(bytes: &[u8]) -> Result<PlaylistInfo, String> {
     } else {
         vec![value_to_metadata(&root)]
     };
+    // The array order is the playlist order. yt-dlp's own playlist_index can
+    // contain gaps when entries are unavailable, and a gap would leave a hole
+    // in the numbers the library shows.
+    let total = entries.len() as i64;
+    for (i, entry) in entries.iter_mut().enumerate() {
+        entry.index = (i + 1) as i64;
+        entry.total = total.max(1);
+    }
     let title = root
         .get("title")
         .and_then(|x| x.as_str())
@@ -545,11 +570,11 @@ pub async fn fetch_playlist_info(
 
 #[tauri::command]
 pub async fn add_video(state: tauri::State<'_, DbState>, video: Video) -> Result<(), String> {
-    sqlx::query("INSERT OR IGNORE INTO videos (id, title, uploader, duration, thumbnail_path, source, url, file_path, file_size, downloaded_at, last_position, watched, playlist_id, folder_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+    sqlx::query("INSERT OR IGNORE INTO videos (id, title, uploader, duration, thumbnail_path, source, url, file_path, file_size, downloaded_at, last_position, watched, playlist_id, folder_id, playlist_index) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
         .bind(&video.id).bind(&video.title).bind(&video.uploader).bind(&video.duration).bind(&video.thumbnail_path)
         .bind(&video.source).bind(&video.url).bind(&video.file_path).bind(&video.file_size).bind(&video.downloaded_at)
         .bind(&video.last_position).bind(if video.watched {1i64} else {0i64}).bind(&video.playlist_id)
-        .bind(&video.folder_id)
+        .bind(&video.folder_id).bind(video.playlist_index)
         .execute(&state.pool).await.map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -687,6 +712,9 @@ mod tests {
         assert_eq!(info.entries.len(), 2);
         assert_eq!(info.entries[0].webpage_url.as_deref(), Some("https://www.youtube.com/watch?v=abc123"));
         assert_eq!(info.entries[0].thumbnail.as_deref(), Some("https://img/1.jpg"));
+        assert_eq!(info.entries[0].index, 1);
+        assert_eq!(info.entries[0].total, 2);
+        assert_eq!(info.entries[1].index, 2);
         assert_eq!(info.entries[1].duration, Some(62));
         assert_eq!(info.entries[1].extractor.as_deref(), Some("Youtube"));
     }
@@ -711,6 +739,8 @@ mod tests {
         assert_eq!(info.title, "Solo");
         assert_eq!(info.entries.len(), 1);
         assert_eq!(info.entries[0].webpage_url.as_deref(), Some("https://example.com/v1"));
+        assert_eq!(info.entries[0].index, 1);
+        assert_eq!(info.entries[0].total, 1);
     }
 
     #[test]
@@ -825,6 +855,14 @@ mod tests {
 
     async fn playlist_id_of(pool: &SqlitePool, video_id: &str) -> Option<String> {
         sqlx::query_scalar::<_, Option<String>>("SELECT playlist_id FROM videos WHERE id=?")
+            .bind(video_id)
+            .fetch_one(pool)
+            .await
+            .unwrap()
+    }
+
+    async fn playlist_index_of(pool: &SqlitePool, video_id: &str) -> Option<i64> {
+        sqlx::query_scalar::<_, Option<i64>>("SELECT playlist_index FROM videos WHERE id=?")
             .bind(video_id)
             .fetch_one(pool)
             .await
@@ -1036,6 +1074,58 @@ mod tests {
             Some(folder_id.as_str())
         );
         assert_eq!(playlist_id_of(&pool, "solo").await.as_deref(), Some("p1"));
+    }
+
+    #[tokio::test]
+    async fn playlist_positions_follow_entry_order_and_re_adding_renumbers() {
+        let pool = test_pool().await;
+        let mut first = playlist("p1");
+        first.url = "https://example.com/p1".to_string();
+        upsert_playlist(&pool, first).await.unwrap();
+        let mut second = playlist("p2");
+        second.url = "https://example.com/p2".to_string();
+        upsert_playlist(&pool, second).await.unwrap();
+
+        for id in ["third", "first", "second"] {
+            insert_video_row(&pool, id, None).await;
+            sqlx::query("UPDATE videos SET playlist_id='p1' WHERE id=?")
+                .bind(id)
+                .execute(&pool)
+                .await
+                .unwrap();
+        }
+        insert_video_row(&pool, "other", None).await;
+        sqlx::query("UPDATE videos SET playlist_id='p2', playlist_index=9 WHERE id='other'")
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        let order = vec![
+            "first".to_string(),
+            "second".to_string(),
+            "third".to_string(),
+        ];
+        ensure_playlist_folder_for(&pool, "p1", &order)
+            .await
+            .unwrap();
+        assert_eq!(playlist_index_of(&pool, "first").await, Some(1));
+        assert_eq!(playlist_index_of(&pool, "second").await, Some(2));
+        assert_eq!(playlist_index_of(&pool, "third").await, Some(3));
+        // A row in a different playlist must keep its own position.
+        assert_eq!(playlist_index_of(&pool, "other").await, Some(9));
+
+        // Re-adding a reordered playlist updates the positions in place.
+        let reordered = vec![
+            "third".to_string(),
+            "first".to_string(),
+            "second".to_string(),
+        ];
+        ensure_playlist_folder_for(&pool, "p1", &reordered)
+            .await
+            .unwrap();
+        assert_eq!(playlist_index_of(&pool, "third").await, Some(1));
+        assert_eq!(playlist_index_of(&pool, "first").await, Some(2));
+        assert_eq!(playlist_index_of(&pool, "second").await, Some(3));
     }
 
     #[tokio::test]

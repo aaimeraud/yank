@@ -81,15 +81,41 @@ export function useLibrary() {
     (id: string) => run(() => invoke("delete_folder", { id })),
     [run],
   );
-  const moveVideo = useCallback(
-    (videoId: string, folderId: string | null) =>
-      run(() => invoke("move_video", { videoId, folderId })),
-    [run],
+  const moveVideos = useCallback(
+    async (videoIds: string[], folderId: string | null) => {
+      if (videoIds.length === 0) return true;
+      try {
+        // Sequential on purpose: one SQLite writer, and a failure stops before
+        // touching the rest. The refresh below shows exactly what landed.
+        for (const videoId of videoIds) {
+          await invoke("move_video", { videoId, folderId });
+        }
+        await refresh();
+        return true;
+      } catch (e) {
+        alert(String(e));
+        await refresh();
+        return false;
+      }
+    },
+    [refresh],
   );
-  const removeVideo = useCallback(
-    (videoId: string, deleteFile: boolean) =>
-      run(() => invoke("remove_video", { videoId, deleteFile })),
-    [run],
+  const removeVideos = useCallback(
+    async (videoIds: string[], deleteFile: boolean) => {
+      if (videoIds.length === 0) return true;
+      try {
+        for (const videoId of videoIds) {
+          await invoke("remove_video", { videoId, deleteFile });
+        }
+        await refresh();
+        return true;
+      } catch (e) {
+        alert(String(e));
+        await refresh();
+        return false;
+      }
+    },
+    [refresh],
   );
 
   return {
@@ -103,7 +129,7 @@ export function useLibrary() {
     createFolder,
     renameFolder,
     deleteFolder,
-    moveVideo,
-    removeVideo,
+    moveVideos,
+    removeVideos,
   };
 }

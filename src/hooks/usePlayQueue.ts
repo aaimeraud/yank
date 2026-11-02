@@ -76,6 +76,13 @@ export function usePlayQueue(videos: Video[], onFileMissing?: () => Promise<void
     setIds((current) => current.filter((queued) => queued !== id));
   }, []);
 
+  /** Drop a bulk selection from the queue in one state update. */
+  const removeMany = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    const drop = new Set(ids);
+    setIds((current) => current.filter((id) => !drop.has(id)));
+  }, []);
+
   const clear = useCallback(() => setIds([]), []);
 
   /**
@@ -105,5 +112,5 @@ export function usePlayQueue(videos: Video[], onFileMissing?: () => Promise<void
     [ids, videos, verify],
   );
 
-  return { items, enqueue, playNext, remove, clear, takeNext, verify, pruneMissing };
+  return { items, enqueue, playNext, remove, removeMany, clear, takeNext, verify, pruneMissing };
 }

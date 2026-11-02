@@ -10,6 +10,8 @@ const meta = (id: string, overrides: Partial<Metadata> = {}): Metadata => ({
   thumbnail: null,
   extractor: "Youtube",
   webpage_url: `https://www.youtube.com/watch?v=${id}`,
+  index: 1,
+  total: 1,
   ...overrides,
 });
 
@@ -51,7 +53,11 @@ function recorder() {
 describe("queueEntries", () => {
   test("queues every playlist entry through its own watch url", async () => {
     const { calls, invoke } = recorder();
-    const metas = [meta("a"), meta("b"), meta("c")];
+    const metas = [
+      meta("a", { index: 1, total: 3 }),
+      meta("b", { index: 2, total: 3 }),
+      meta("c", { index: 3, total: 3 }),
+    ];
 
     const queued = await queueEntries(
       { metas, playlistId: "p1", folderId: "f1", downloadDir: "/tmp/yank", formatPref: "video", videos: [], queue: [] },
@@ -70,6 +76,7 @@ describe("queueEntries", () => {
       expect(added.id).toBe(m.id);
       expect(added.playlist_id).toBe("p1");
       expect(added.folder_id).toBe("f1");
+      expect(added.playlist_index).toBe(i + 1);
       expect(added.source).toBe("Youtube");
       expect(starts[i].args).toMatchObject({
         videoId: m.id,

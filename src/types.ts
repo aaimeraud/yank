@@ -12,6 +12,9 @@ export interface Video {
   watched: boolean;
   last_position: number;
   folder_id: string | null;
+  playlist_id?: string | null;
+  /** 1-based position in the playlist, or null for a standalone video. */
+  playlist_index?: number | null;
 }
 
 export interface Folder {
@@ -40,6 +43,10 @@ export interface Metadata {
   thumbnail: string | null;
   extractor: string | null;
   webpage_url: string | null;
+  /** 1-based position in the playlist, or 1 for a single video. */
+  index: number;
+  /** Number of entries in the playlist, or 1 for a single video. */
+  total: number;
 }
 
 export interface Playlist {

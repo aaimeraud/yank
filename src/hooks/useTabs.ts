@@ -63,6 +63,24 @@ export function useTabs(videos: Video[]) {
     [tabs],
   );
 
+  /** Close a bulk selection without dropping tabs the user did not select. */
+  const closeMany = useCallback(
+    (ids: string[]) => {
+      if (ids.length === 0) return;
+      const drop = new Set(ids);
+      const index = tabs.findIndex((tab) => tab.id === activeId);
+      const remaining = tabs.filter((tab) => !drop.has(tab.id));
+      setTabs(remaining);
+      setActiveId((current) => {
+        if (current && !drop.has(current)) return current;
+        const fallback = Math.min(Math.max(index, 0), remaining.length - 1);
+        return remaining[fallback]?.id ?? null;
+      });
+      setAutoPlayId((current) => (current && drop.has(current) ? null : current));
+    },
+    [activeId, tabs],
+  );
+
   const select = useCallback((id: string | null) => {
     setActiveId(id);
     setAutoPlayId(null);
@@ -79,6 +97,7 @@ export function useTabs(videos: Video[]) {
     open,
     advance,
     close,
+    closeMany,
     select,
   };
 }

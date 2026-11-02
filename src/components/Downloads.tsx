@@ -1,4 +1,5 @@
 import type { QueueItem, Video } from "../types";
+import { displayTitle } from "../lib/display";
 
 interface Props {
   queue: QueueItem[];
@@ -75,7 +76,7 @@ export default function Downloads({
           return (
             <li key={q.id}>
               <div className="qmain">
-                <span className="qtitle">{video?.title ?? "Download"}</span>
+                <span className="qtitle">{video ? displayTitle(video) : "Download"}</span>
                 <span className="qmeta">{meta}</span>
               </div>
               <progress value={q.progress} max={100} />

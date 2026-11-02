@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import type { Folder, Video } from "../types";
+import { displayTitle } from "../lib/display";
 
 interface Props {
   video: Video;
   folders: Folder[];
+  selecting: boolean;
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
   onPlay: (video: Video) => void;
   onDownload: (video: Video) => void;
   onPlayNext: (video: Video) => void;
@@ -26,6 +30,9 @@ const dur = (s: number | null) => {
 export default function VideoCard({
   video,
   folders,
+  selecting,
+  selected,
+  onToggleSelect,
   onPlay,
   onDownload,
   onPlayNext,
@@ -35,6 +42,7 @@ export default function VideoCard({
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const label = displayTitle(video);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -52,6 +60,10 @@ export default function VideoCard({
     };
   }, [menuOpen]);
 
+  useEffect(() => {
+    if (selecting) setMenuOpen(false);
+  }, [selecting]);
+
   const move = (folderId: string | null) => {
     onMove(video.id, folderId);
     setMenuOpen(false);
@@ -60,25 +72,40 @@ export default function VideoCard({
   const remove = (deleteFile: boolean) => {
     setMenuOpen(false);
     if (deleteFile) {
-      const ok = confirm(`Delete "${video.title}" from disk? This cannot be undone.`);
+      const ok = confirm(`Delete "${label}" from disk? This cannot be undone.`);
       if (!ok) return;
     }
     onRemove(video.id, deleteFile);
+  };
+
+  const activate = () => {
+    if (selecting) {
+      onToggleSelect(video.id);
+      return;
+    }
+    if (menuOpen) {
+      setMenuOpen(false);
+      return;
+    }
+    onPlay(video);
   };
 
   const destinations = folders.filter((folder) => folder.id !== video.folder_id);
 
   return (
     <div
-      className="card"
-      onClick={() => {
-        if (menuOpen) {
-          setMenuOpen(false);
-          return;
+      className={"card" + (selected ? " selected" : "")}
+      role={selecting ? "checkbox" : "button"}
+      aria-checked={selecting ? selected : undefined}
+      tabIndex={0}
+      onClick={activate}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          activate();
         }
-        onPlay(video);
       }}
-      style={{ cursor: video.file_path ? "pointer" : "default" }}
+      style={{ cursor: selecting || video.file_path ? "pointer" : "default" }}
     >
       <div className={"thumb" + (video.thumbnail_path ? " has-img" : "")}>
         {video.thumbnail_path ? (
@@ -88,7 +115,13 @@ export default function VideoCard({
         )}
       </div>
 
-      {!video.file_path && (
+      {selecting && (
+        <span className={"card-check" + (selected ? " checked" : "")} aria-hidden="true">
+          {selected ? "✓" : ""}
+        </span>
+      )}
+
+      {!selecting && !video.file_path && (
         <button
           className="card-download"
           onClick={(event) => {
@@ -100,57 +133,59 @@ export default function VideoCard({
         </button>
       )}
 
-      <div className="card-menu-wrap" ref={menuRef} onClick={(event) => event.stopPropagation()}>
-        <button
-          className={"card-menu-btn" + (menuOpen ? " open" : "")}
-          aria-label="More actions"
-          onClick={() => setMenuOpen((open) => !open)}
-        >
-          ⋯
-        </button>
-        {menuOpen && (
-          <div className="card-menu">
-            {video.file_path && (
-              <>
-                <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onPlayNext(video);
-                  }}
-                >
-                  Play next
+      {!selecting && (
+        <div className="card-menu-wrap" ref={menuRef} onClick={(event) => event.stopPropagation()}>
+          <button
+            className={"card-menu-btn" + (menuOpen ? " open" : "")}
+            aria-label="More actions"
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            ⋯
+          </button>
+          {menuOpen && (
+            <div className="card-menu">
+              {video.file_path && (
+                <>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onPlayNext(video);
+                    }}
+                  >
+                    Play next
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onQueue(video);
+                    }}
+                  >
+                    Add to queue
+                  </button>
+                  <div className="menu-sep" />
+                </>
+              )}
+              <span className="menu-label">Move to</span>
+              {video.folder_id && <button onClick={() => move(null)}>No folder</button>}
+              {destinations.map((folder) => (
+                <button key={folder.id} onClick={() => move(folder.id)}>
+                  {folder.name}
                 </button>
-                <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onQueue(video);
-                  }}
-                >
-                  Add to queue
-                </button>
-                <div className="menu-sep" />
-              </>
-            )}
-            <span className="menu-label">Move to</span>
-            {video.folder_id && <button onClick={() => move(null)}>No folder</button>}
-            {destinations.map((folder) => (
-              <button key={folder.id} onClick={() => move(folder.id)}>
-                {folder.name}
+              ))}
+              {destinations.length === 0 && !video.folder_id && (
+                <span className="menu-empty">No folders yet</span>
+              )}
+              <div className="menu-sep" />
+              <button onClick={() => remove(false)}>Remove from library</button>
+              <button className="danger" onClick={() => remove(true)}>
+                Delete file…
               </button>
-            ))}
-            {destinations.length === 0 && !video.folder_id && (
-              <span className="menu-empty">No folders yet</span>
-            )}
-            <div className="menu-sep" />
-            <button onClick={() => remove(false)}>Remove from library</button>
-            <button className="danger" onClick={() => remove(true)}>
-              Delete file…
-            </button>
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
+      )}
 
-      <div className="title">{video.title}</div>
+      <div className="title">{label}</div>
       <div className="meta">
         {video.uploader ?? "Unknown"}
         {video.duration ? ` · ${dur(video.duration)}` : ""}

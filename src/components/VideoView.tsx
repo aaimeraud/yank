@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import type { Video } from "../types";
 import { playbackSnapshot } from "../lib/playback";
+import { displayTitle } from "../lib/display";
 import SourceIcon, { sourceLabel } from "./SourceIcon";
 import {
   Back10Icon,
@@ -359,7 +360,7 @@ export default function VideoView({
           <SourceIcon source={video.source} size={15} />
           <span>{sourceLabel(video.source)}</span>
         </div>
-        <h1 className="vv-title">{video.title}</h1>
+        <h1 className="vv-title">{displayTitle(video)}</h1>
         <div className="vv-meta">
           {video.uploader ?? "Unknown"}
           {video.duration ? ` · ${fmt(video.duration)}` : ""}
@@ -482,15 +483,15 @@ export default function VideoView({
                   <button
                     className="vv-queue-item"
                     onClick={() => onPlayQueued(item)}
-                    title={item.title}
+                    title={displayTitle(item)}
                   >
-                    {item.title}
+                    {displayTitle(item)}
                   </button>
                   <span className="vv-queue-duration">{fmt(item.duration ?? 0)}</span>
                   <button
                     className="vv-queue-remove"
                     onClick={() => onRemoveFromQueue(item.id)}
-                    aria-label={`Remove ${item.title} from the queue`}
+                    aria-label={`Remove ${displayTitle(item)} from the queue`}
                   >
                     <CloseIcon size={11} />
                   </button>

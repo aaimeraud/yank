@@ -53,6 +53,9 @@ export async function queueEntries(
         watched: false,
         playlist_id: playlistId,
         folder_id: folderId,
+        // Standalone videos have no ordinal. A playlist entry keeps the
+        // position parse_playlist_output assigned from the source order.
+        playlist_index: playlistId ? meta.index : null,
       },
     });
     await invoke("start_download", {

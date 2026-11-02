@@ -43,11 +43,11 @@ export default function App() {
     tabs.select(null);
   };
 
-  const removeVideo = async (videoId: string, deleteFile: boolean) => {
-    if (await library.removeVideo(videoId, deleteFile)) {
-      playQueue.remove(videoId);
-      tabs.close(videoId);
-    }
+  const removeVideos = async (videoIds: string[], deleteFile: boolean) => {
+    if (!(await library.removeVideos(videoIds, deleteFile))) return false;
+    playQueue.removeMany(videoIds);
+    tabs.closeMany(videoIds);
+    return true;
   };
 
   // An explicit queue always wins; otherwise autoplay walks the visible grid.
@@ -163,8 +163,8 @@ export default function App() {
                       onCreateFolder={library.createFolder}
                       onRenameFolder={library.renameFolder}
                       onDeleteFolder={library.deleteFolder}
-                      onMoveVideo={library.moveVideo}
-                      onRemoveVideo={removeVideo}
+                      onMoveVideos={library.moveVideos}
+                      onRemoveVideos={removeVideos}
                     />
                   </section>
                 )}

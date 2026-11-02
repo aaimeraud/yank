@@ -1,6 +1,7 @@
 import type { Video } from "../types";
 import SourceIcon from "./SourceIcon";
 import { CloseIcon } from "./icons";
+import { displayTitle } from "../lib/display";
 
 interface Props {
   tabs: Video[];
@@ -13,12 +14,14 @@ export default function TabBar({ tabs, activeId, onSelect, onClose }: Props) {
   if (tabs.length === 0) return null;
   return (
     <div className="tabbar" role="tablist" aria-label="Open videos">
-      {tabs.map((v) => (
+      {tabs.map((v) => {
+        const label = displayTitle(v);
+        return (
         <div
           key={v.id}
           role="tab"
           aria-selected={v.id === activeId}
-          title={v.title}
+          title={label}
           tabIndex={0}
           className={"tab" + (v.id === activeId ? " active" : "")}
           onClick={() => onSelect(v.id)}
@@ -30,10 +33,10 @@ export default function TabBar({ tabs, activeId, onSelect, onClose }: Props) {
           }}
         >
           <SourceIcon source={v.source} size={15} />
-          <span className="tabtitle">{v.title}</span>
+          <span className="tabtitle">{label}</span>
           <button
             className="tabclose"
-            aria-label={`Close ${v.title}`}
+            aria-label={`Close ${label}`}
             onClick={(e) => {
               e.stopPropagation();
               onClose(v.id);
@@ -42,7 +45,8 @@ export default function TabBar({ tabs, activeId, onSelect, onClose }: Props) {
             <CloseIcon size={11} />
           </button>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

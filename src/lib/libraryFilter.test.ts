@@ -41,3 +41,60 @@ describe("filterVideos", () => {
     expect(filterVideos([], "music")).toEqual([]);
   });
 });
+
+const playlistVideo = (id: string, index: number | null, playlistId: string) =>
+  ({
+    ...video(id, "list"),
+    playlist_id: playlistId,
+    playlist_index: index,
+  }) satisfies Video;
+
+describe("playlist order", () => {
+  test("sorts a single-playlist folder by position, not download time", () => {
+    // Downloaded 5, then 2, then 1: newest-first would show 5, 2, 1.
+    const list = [
+      playlistVideo("five", 5, "p1"),
+      playlistVideo("two", 2, "p1"),
+      playlistVideo("one", 1, "p1"),
+    ];
+    expect(filterVideos(list, "list").map((v) => v.id)).toEqual(["one", "two", "five"]);
+  });
+
+  test("orders a playlist around videos from elsewhere", () => {
+    const list = [
+      playlistVideo("five", 5, "p1"),
+      { ...video("solo", "list"), playlist_id: null, playlist_index: null },
+      playlistVideo("one", 1, "p1"),
+    ];
+    // The standalone keeps its slot; the playlist members sort around it.
+    expect(filterVideos(list, "list").map((v) => v.id)).toEqual(["one", "solo", "five"]);
+  });
+
+  test("leaves a member without a position in its slot", () => {
+    const list = [
+      playlistVideo("none", null, "p1"),
+      playlistVideo("two", 2, "p1"),
+      playlistVideo("one", 1, "p1"),
+    ];
+    expect(filterVideos(list, "list").map((v) => v.id)).toEqual(["none", "one", "two"]);
+  });
+
+  test("sorts two playlists independently", () => {
+    const list = [
+      playlistVideo("a2", 2, "p1"),
+      playlistVideo("b1", 1, "p2"),
+      playlistVideo("a1", 1, "p1"),
+      playlistVideo("b2", 2, "p2"),
+    ];
+    expect(filterVideos(list, "list").map((v) => v.id)).toEqual(["a1", "b1", "a2", "b2"]);
+  });
+
+  test("does not reorder the whole library", () => {
+    const list = [
+      playlistVideo("five", 5, "p1"),
+      { ...video("solo", null), playlist_id: null, playlist_index: null },
+      playlistVideo("one", 1, "p1"),
+    ];
+    expect(filterVideos(list, ALL).map((v) => v.id)).toEqual(["five", "solo", "one"]);
+  });
+});

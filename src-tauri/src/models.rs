@@ -16,6 +16,9 @@ pub struct Video {
     pub watched: bool,
     pub playlist_id: Option<String>,
     pub folder_id: Option<String>,
+    /// 1-based position inside the playlist; None for a standalone video.
+    #[serde(default)]
+    pub playlist_index: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -56,6 +59,12 @@ pub struct Metadata {
     pub thumbnail: Option<String>,
     pub extractor: Option<String>,
     pub webpage_url: Option<String>,
+    /// 1-based position in the playlist, or 1 for a single video.
+    #[serde(default)]
+    pub index: i64,
+    /// Number of entries in the playlist, or 1 for a single video.
+    #[serde(default)]
+    pub total: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

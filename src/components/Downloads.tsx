@@ -9,6 +9,7 @@ interface Props {
   onCancel: (id: string) => void;
   onRemove: (id: string) => void;
   onClearFinished: () => void;
+  onRetryFailed: () => void;
 }
 
 const speed = (raw: string | null) => {
@@ -44,9 +45,11 @@ export default function Downloads({
   onCancel,
   onRemove,
   onClearFinished,
+  onRetryFailed,
 }: Props) {
   if (queue.length === 0) return <p className="empty">No downloads.</p>;
 
+  const failed = queue.filter((q) => q.status === "failed").length;
   const hasFinished = queue.some(
     (q) => q.status === "done" || q.status === "failed" || q.status === "cancelled",
   );
@@ -55,7 +58,12 @@ export default function Downloads({
     <>
       {hasFinished && (
         <div className="queue-head">
-          <button onClick={onClearFinished}>Clear finished</button>
+          {failed > 0 && (
+            <button onClick={onRetryFailed}>
+              Retry failed ({failed})
+            </button>
+          )}
+          {hasFinished && <button onClick={onClearFinished}>Clear finished</button>}
         </div>
       )}
       <ul className="queue">

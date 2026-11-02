@@ -87,6 +87,23 @@ export function useDownloads(onFinished?: () => void) {
     },
     [run],
   );
+  /** One click to requeue every failed row, the usual recovery after a yt-dlp fix. */
+  const retryFailed = useCallback(
+    (formatPref: string, downloadDir: string | null) => {
+      if (!downloadDir) {
+        alert("Pick a downloads folder in Settings first.");
+        return;
+      }
+      const ids = queue.filter((item) => item.status === "failed").map((item) => item.id);
+      if (ids.length === 0) return;
+      run(async () => {
+        for (const queueId of ids) {
+          await invoke("resume_download", { queueId, formatPref, downloadDir });
+        }
+      });
+    },
+    [queue, run],
+  );
 
-  return { queue, refresh, pause, cancel, remove, clearFinished, resume };
+  return { queue, refresh, pause, cancel, remove, clearFinished, resume, retryFailed };
 }

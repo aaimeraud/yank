@@ -185,6 +185,12 @@ export default function App() {
                       onCancel={downloads.cancel}
                       onRemove={downloads.remove}
                       onClearFinished={downloads.clearFinished}
+                      onRetryFailed={() =>
+                        downloads.retryFailed(
+                          settings.settings.default_quality,
+                          settings.settings.download_dir,
+                        )
+                      }
                     />
                   </section>
                 )}

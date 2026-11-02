@@ -7,6 +7,8 @@ interface Props {
   folders: Folder[];
   onPlay: (video: Video) => void;
   onDownload: (video: Video) => void;
+  onPlayNext: (video: Video) => void;
+  onQueue: (video: Video) => void;
   onMove: (videoId: string, folderId: string | null) => void;
   onRemove: (videoId: string, deleteFile: boolean) => void;
 }
@@ -26,6 +28,8 @@ export default function VideoCard({
   folders,
   onPlay,
   onDownload,
+  onPlayNext,
+  onQueue,
   onMove,
   onRemove,
 }: Props) {
@@ -106,6 +110,27 @@ export default function VideoCard({
         </button>
         {menuOpen && (
           <div className="card-menu">
+            {video.file_path && (
+              <>
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onPlayNext(video);
+                  }}
+                >
+                  Play next
+                </button>
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onQueue(video);
+                  }}
+                >
+                  Add to queue
+                </button>
+                <div className="menu-sep" />
+              </>
+            )}
             <span className="menu-label">Move to</span>
             {video.folder_id && <button onClick={() => move(null)}>No folder</button>}
             {destinations.map((folder) => (

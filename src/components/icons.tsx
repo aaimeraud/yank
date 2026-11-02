@@ -74,6 +74,15 @@ export function PiPIcon({ size = 18 }: IconProps) {
   );
 }
 
+export function QueueIcon({ size = 18 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 6.5h11M4 12h11M4 17.5h6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <path d="M16 14.2v5.6l4.4-2.8L16 14.2Z" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function CloseIcon({ size = 12 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 12 12" fill="none" aria-hidden="true">

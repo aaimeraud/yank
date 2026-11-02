@@ -35,6 +35,7 @@ export function useDownloader({ videos, queue, downloadDir, formatPref, onQueued
       }
 
       let playlistId: string | null = null;
+      let folderId: string | null = null;
       if (info.is_playlist) {
         const first = metas[0];
         playlistId = await invoke<string>("add_playlist", {
@@ -46,10 +47,16 @@ export function useDownloader({ videos, queue, downloadDir, formatPref, onQueued
             thumbnail_path: first?.thumbnail ?? null,
           },
         });
+        // Resolve the folder before the entries exist so add_video can file
+        // each new row directly, with no second pass over the library. The
+        // entry ids let the backend adopt videos the user already downloaded
+        // standalone before this playlist existed.
+        const entryIds = metas.map((meta) => meta.id).filter((id) => id.length > 0);
+        folderId = await invoke<string>("ensure_playlist_folder", { playlistId, entryIds });
       }
 
       const queued = await queueEntries(
-        { metas, playlistId, downloadDir: dir, videos, queue, formatPref },
+        { metas, playlistId, folderId, downloadDir: dir, videos, queue, formatPref },
         invoke,
       );
 

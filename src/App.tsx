@@ -11,7 +11,9 @@ import { useSettings } from "./hooks/useSettings";
 import { useLibrary } from "./hooks/useLibrary";
 import { useDownloads } from "./hooks/useDownloads";
 import { useTabs } from "./hooks/useTabs";
+import { usePlayQueue } from "./hooks/usePlayQueue";
 import { useDownloader } from "./hooks/useDownloader";
+import { nextAfter } from "./lib/playQueue";
 import "./App.css";
 
 export default function App() {
@@ -20,6 +22,7 @@ export default function App() {
   const library = useLibrary();
   const downloads = useDownloads(library.refresh);
   const tabs = useTabs(library.videos);
+  const playQueue = usePlayQueue(library.videos, library.refresh);
 
   const downloader = useDownloader({
     videos: library.videos,
@@ -41,8 +44,42 @@ export default function App() {
   };
 
   const removeVideo = async (videoId: string, deleteFile: boolean) => {
-    if (await library.removeVideo(videoId, deleteFile)) tabs.close(videoId);
+    if (await library.removeVideo(videoId, deleteFile)) {
+      playQueue.remove(videoId);
+      tabs.close(videoId);
+    }
   };
+
+  // An explicit queue always wins; otherwise autoplay walks the visible grid.
+  // nextAfter keeps a folder's last video from spilling into the rest of the
+  // library, while still handling a queued video opened from another folder.
+  // Every candidate is checked on disk first: a file can vanish mid-session.
+  const playNextOnEnd = async (current: Video) => {
+    const queued = await playQueue.takeNext(current.id);
+    if (queued) {
+      tabs.advance(queued);
+      return;
+    }
+    let candidate = nextAfter(current, library.visibleVideos, library.videos);
+    while (candidate) {
+      if (await playQueue.verify(candidate)) {
+        tabs.advance(candidate);
+        return;
+      }
+      candidate = nextAfter(candidate, library.visibleVideos, library.videos);
+    }
+  };
+
+  const playQueuedNow = async (video: Video) => {
+    playQueue.remove(video.id);
+    if (!(await playQueue.verify(video))) {
+      alert("That file is gone. It has been removed from the library.");
+      return;
+    }
+    tabs.advance(video);
+  };
+
+  const activeVideo = tabs.activeVideo;
 
   const downloadMissing = async (video: Video) => {
     const dir =
@@ -94,19 +131,35 @@ export default function App() {
           busy={downloader.busy}
         />
         <main className="content">
-          <div className={"content-body" + (tabs.activeVideo ? " has-video" : "")}>
-            {tabs.activeVideo ? (
-              <VideoView video={tabs.activeVideo} />
+          <div className={"content-body" + (activeVideo ? " has-video" : "")}>
+            {activeVideo ? (
+              <VideoView
+                video={activeVideo}
+                autoPlay={tabs.autoPlay}
+                playSignal={tabs.playSignal}
+                queue={playQueue.items}
+                onEnded={() => playNextOnEnd(activeVideo)}
+                onPlayQueued={playQueuedNow}
+                onRemoveFromQueue={playQueue.remove}
+                onClearQueue={playQueue.clear}
+                onQueueOpened={playQueue.pruneMissing}
+              />
             ) : (
               <>
                 {view === "library" && (
                   <section>
                     <h2>Library</h2>
                     <Library
-                      videos={library.videos}
+                      videos={library.visibleVideos}
+                      total={library.videos.length}
+                      unfiled={library.unfiledCount}
+                      selected={library.selectedFolder}
                       folders={library.folders}
+                      onSelect={library.setSelectedFolder}
                       onPlay={tabs.open}
                       onDownload={downloadMissing}
+                      onPlayNext={playQueue.playNext}
+                      onQueue={playQueue.enqueue}
                       onCreateFolder={library.createFolder}
                       onRenameFolder={library.renameFolder}
                       onDeleteFolder={library.deleteFolder}

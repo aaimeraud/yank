@@ -215,6 +215,101 @@ async fn remove_video_for(pool: &SqlitePool, video_id: &str, delete_file: bool) 
     Ok(())
 }
 
+async fn ensure_playlist_folder_for(
+    pool: &SqlitePool,
+    playlist_id: &str,
+    entry_ids: &[String],
+) -> Result<String, String> {
+    let title: Option<(String,)> = sqlx::query_as("SELECT title FROM playlists WHERE id=?")
+        .bind(playlist_id)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+    let title = title.ok_or_else(|| "Playlist not found.".to_string())?.0;
+
+    let trimmed = title.trim();
+    let source = if trimmed.is_empty() { "Playlist" } else { trimmed };
+    let name: String = source.chars().take(60).collect();
+    let name = name.trim().to_string();
+
+    let existing: Option<(String,)> =
+        sqlx::query_as("SELECT id FROM folders WHERE name = ? COLLATE NOCASE")
+            .bind(&name)
+            .fetch_optional(pool)
+            .await
+            .map_err(|e| e.to_string())?;
+
+    let folder_id = match existing {
+        Some((id,)) => id,
+        None => {
+            let id = uuid::Uuid::new_v4().to_string();
+            let result = sqlx::query("INSERT INTO folders (id, name, created_at) VALUES (?,?,?)")
+                .bind(&id)
+                .bind(&name)
+                .bind(chrono::Utc::now().timestamp())
+                .execute(pool)
+                .await;
+            match result {
+                Ok(_) => id,
+                Err(sqlx::Error::Database(db)) if db.is_unique_violation() => {
+                    sqlx::query_scalar::<_, String>(
+                        "SELECT id FROM folders WHERE name = ? COLLATE NOCASE",
+                    )
+                    .bind(&name)
+                    .fetch_one(pool)
+                    .await
+                    .map_err(|e| e.to_string())?
+                }
+                Err(e) => return Err(e.to_string()),
+            }
+        }
+    };
+
+    // Only unfiled videos join the folder, so re-downloading a playlist never
+    // pulls videos the user has already organized somewhere else.
+    sqlx::query("UPDATE videos SET folder_id=? WHERE playlist_id=? AND folder_id IS NULL")
+        .bind(&folder_id)
+        .bind(playlist_id)
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // A video downloaded on its own before the playlist existed has no
+    // playlist_id, so the update above misses it. Adopt it by id instead, and
+    // record the playlist link now that we know where it belongs.
+    for chunk in entry_ids.chunks(400) {
+        let placeholders = vec!["?"; chunk.len()].join(",");
+        let sql = format!(
+            "UPDATE videos SET folder_id=?, playlist_id=COALESCE(playlist_id, ?) \
+             WHERE id IN ({placeholders}) AND folder_id IS NULL"
+        );
+        let mut query = sqlx::query(&sql).bind(&folder_id).bind(playlist_id);
+        for id in chunk {
+            query = query.bind(id);
+        }
+        query.execute(pool).await.map_err(|e| e.to_string())?;
+    }
+
+    Ok(folder_id)
+}
+
+#[tauri::command]
+pub async fn ensure_playlist_folder(
+    state: tauri::State<'_, DbState>,
+    playlist_id: String,
+    entry_ids: Vec<String>,
+) -> Result<String, String> {
+    ensure_playlist_folder_for(&state.pool, &playlist_id, &entry_ids).await
+}
+
+#[tauri::command]
+pub async fn prune_missing_videos(
+    state: tauri::State<'_, DbState>,
+    ids: Vec<String>,
+) -> Result<Vec<String>, String> {
+    crate::db::clear_missing_files(&state.pool, &ids).await
+}
+
 #[tauri::command]
 pub async fn list_folders(state: tauri::State<'_, DbState>) -> Result<Vec<Folder>, String> {
     list_folders_for(&state.pool).await
@@ -258,7 +353,8 @@ pub async fn remove_video(
 }
 
 #[tauri::command]
-pub async fn list_playlists(state: tauri::State<'_, DbState>) -> Result<Vec<Playlist>, String> {    let rows = sqlx::query_as::<_, (String, String, String, String, Option<String>)>(
+pub async fn list_playlists(state: tauri::State<'_, DbState>) -> Result<Vec<Playlist>, String> {
+    let rows = sqlx::query_as::<_, (String, String, String, String, Option<String>)>(
         "SELECT id, title, source, url, thumbnail_path FROM playlists ORDER BY title"
     ).fetch_all(&state.pool).await.map_err(|e| e.to_string())?;
     Ok(rows.into_iter().map(|r| Playlist { id: r.0, title: r.1, source: r.2, url: r.3, thumbnail_path: r.4 }).collect())
@@ -460,13 +556,25 @@ pub async fn add_video(state: tauri::State<'_, DbState>, video: Video) -> Result
 
 async fn upsert_playlist(pool: &SqlitePool, playlist: Playlist) -> Result<String, String> {
     // Re-adding the same playlist must reuse its row, or every video would point
-    // at an id that was silently ignored by the unique url constraint.
+    // at an id that was silently ignored by the unique url constraint. The
+    // metadata still refreshes: a renamed playlist should file new downloads
+    // under the name the user sees today.
     if let Some((id,)) = sqlx::query_as::<_, (String,)>("SELECT id FROM playlists WHERE url=?")
         .bind(&playlist.url)
         .fetch_optional(pool)
         .await
         .map_err(|e| e.to_string())?
     {
+        sqlx::query(
+            "UPDATE playlists SET title=?, source=?, thumbnail_path=COALESCE(?, thumbnail_path) WHERE id=?",
+        )
+        .bind(&playlist.title)
+        .bind(&playlist.source)
+        .bind(&playlist.thumbnail_path)
+        .bind(&id)
+        .execute(pool)
+        .await
+        .map_err(|e| e.to_string())?;
         return Ok(id);
     }
     sqlx::query("INSERT INTO playlists (id, title, source, url, thumbnail_path) VALUES (?,?,?,?,?)")
@@ -661,13 +769,25 @@ mod tests {
     async fn add_playlist_reuses_the_existing_row() {
         let pool = test_pool().await;
         assert_eq!(upsert_playlist(&pool, playlist("p1")).await.unwrap(), "p1");
-        assert_eq!(upsert_playlist(&pool, playlist("p2")).await.unwrap(), "p1");
+
+        let mut renamed = playlist("p2");
+        renamed.title = "Renamed list".to_string();
+        renamed.source = "Vimeo".to_string();
+        assert_eq!(upsert_playlist(&pool, renamed).await.unwrap(), "p1");
 
         let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM playlists")
             .fetch_one(&pool)
             .await
             .unwrap();
         assert_eq!(count.0, 1);
+
+        let (title, source): (String, String) =
+            sqlx::query_as("SELECT title, source FROM playlists WHERE id='p1'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(title, "Renamed list");
+        assert_eq!(source, "Vimeo");
     }
 
     async fn insert_video_row(pool: &SqlitePool, id: &str, folder_id: Option<&str>) {
@@ -697,6 +817,14 @@ mod tests {
 
     async fn folder_id_of(pool: &SqlitePool, video_id: &str) -> Option<String> {
         sqlx::query_scalar::<_, Option<String>>("SELECT folder_id FROM videos WHERE id=?")
+            .bind(video_id)
+            .fetch_one(pool)
+            .await
+            .unwrap()
+    }
+
+    async fn playlist_id_of(pool: &SqlitePool, video_id: &str) -> Option<String> {
+        sqlx::query_scalar::<_, Option<String>>("SELECT playlist_id FROM videos WHERE id=?")
             .bind(video_id)
             .fetch_one(pool)
             .await
@@ -806,6 +934,7 @@ mod tests {
         assert!(kept.exists());
         remove_video_for(&pool, "deleted", true).await.unwrap();
         assert!(!deleted.exists());
+        assert!(remove_video_for(&pool, "kept", false).await.is_err());
 
         insert_video_row(&pool, "busy", None).await;
         sqlx::query(
@@ -828,8 +957,115 @@ mod tests {
             .unwrap();
         assert_eq!(videos.0, 1);
         assert_eq!(queue.0, 1);
-        assert!(remove_video_for(&pool, "kept", false).await.is_err());
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn playlist_folders_adopt_standalone_videos_but_never_manual_ones() {
+        let pool = test_pool().await;
+        let mut list = playlist("p1");
+        list.title = "  My Playlist  ".to_string();
+        upsert_playlist(&pool, list).await.unwrap();
+        let keepers = create_folder_for(&pool, "Keepers").await.unwrap();
+
+        // "linked" already belongs to the playlist, "standalone" was downloaded
+        // on its own before the playlist existed (so it has no playlist_id),
+        // and "filed" was moved into a user folder that must be respected.
+        insert_video_row(&pool, "linked", None).await;
+        insert_video_row(&pool, "standalone", None).await;
+        insert_video_row(&pool, "filed", Some(&keepers.id)).await;
+        sqlx::query("UPDATE videos SET playlist_id='p1' WHERE id='linked'")
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        let entries = vec![
+            "linked".to_string(),
+            "standalone".to_string(),
+            "filed".to_string(),
+        ];
+        let folder_id = ensure_playlist_folder_for(&pool, "p1", &entries).await.unwrap();
+        let (name,): (String,) = sqlx::query_as("SELECT name FROM folders WHERE id=?")
+            .bind(&folder_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(name, "My Playlist");
+        assert_eq!(
+            folder_id_of(&pool, "linked").await.as_deref(),
+            Some(folder_id.as_str())
+        );
+        assert_eq!(
+            folder_id_of(&pool, "standalone").await.as_deref(),
+            Some(folder_id.as_str())
+        );
+        assert_eq!(
+            playlist_id_of(&pool, "standalone").await.as_deref(),
+            Some("p1")
+        );
+        assert_eq!(
+            folder_id_of(&pool, "filed").await.as_deref(),
+            Some(keepers.id.as_str())
+        );
+
+        // Re-adding the playlist must reuse the same folder and change nothing.
+        assert_eq!(
+            ensure_playlist_folder_for(&pool, "p1", &entries).await.unwrap(),
+            folder_id
+        );
+        let folders: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM folders")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(folders.0, 2);
+        assert!(ensure_playlist_folder_for(&pool, "missing", &[]).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn playlist_folders_link_standalone_rows_without_a_folder() {
+        let pool = test_pool().await;
+        upsert_playlist(&pool, playlist("p1")).await.unwrap();
+        insert_video_row(&pool, "solo", None).await;
+
+        let folder_id = ensure_playlist_folder_for(&pool, "p1", &["solo".to_string()])
+            .await
+            .unwrap();
+        assert_eq!(
+            folder_id_of(&pool, "solo").await.as_deref(),
+            Some(folder_id.as_str())
+        );
+        assert_eq!(playlist_id_of(&pool, "solo").await.as_deref(), Some("p1"));
+    }
+
+    #[tokio::test]
+    async fn playlist_folder_names_are_truncated_and_defaulted() {
+        let pool = test_pool().await;
+        upsert_playlist(&pool, playlist("p1")).await.unwrap();
+
+        sqlx::query("UPDATE playlists SET title=? WHERE id='p1'")
+            .bind("x".repeat(80))
+            .execute(&pool)
+            .await
+            .unwrap();
+        let folder_id = ensure_playlist_folder_for(&pool, "p1", &[]).await.unwrap();
+        let (name,): (String,) = sqlx::query_as("SELECT name FROM folders WHERE id=?")
+            .bind(&folder_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(name.chars().count(), 60);
+
+        sqlx::query("UPDATE playlists SET title='   ' WHERE id='p1'")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let folder_id = ensure_playlist_folder_for(&pool, "p1", &[]).await.unwrap();
+        let (name,): (String,) = sqlx::query_as("SELECT name FROM folders WHERE id=?")
+            .bind(&folder_id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(name, "Playlist");
     }
 }

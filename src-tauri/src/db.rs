@@ -47,32 +47,51 @@ pub async fn init_db(app: &tauri::AppHandle) -> SqlitePool {
     pool
 }
 
+/// Clear the file claim on the given rows when the file behind it is gone.
+/// Returns the ids that were cleared, so a queue holding those ids can drop
+/// exactly the entries that can no longer play. Scoped on purpose: the player
+/// asks about the handful of videos it is about to use, not the whole library.
+pub async fn clear_missing_files(pool: &SqlitePool, ids: &[String]) -> Result<Vec<String>, String> {
+    let mut cleared = Vec::new();
+    // SQLite caps bound variables, and a queue is user-controlled in size.
+    for chunk in ids.chunks(400) {
+        let placeholders = vec!["?"; chunk.len()].join(",");
+        let sql = format!(
+            "SELECT id, file_path FROM videos WHERE file_path IS NOT NULL AND id IN ({placeholders})"
+        );
+        let mut query = sqlx::query_as::<_, (String, String)>(&sql);
+        for id in chunk {
+            query = query.bind(id);
+        }
+        for (id, path) in query.fetch_all(pool).await.map_err(|e| e.to_string())? {
+            if std::path::Path::new(&path).is_file() {
+                continue;
+            }
+            sqlx::query(
+                "UPDATE videos SET file_path=NULL, file_size=NULL, thumbnail_path=NULL, downloaded_at=NULL WHERE id=?",
+            )
+            .bind(&id)
+            .execute(pool)
+            .await
+            .map_err(|e| e.to_string())?;
+            cleared.push(id);
+        }
+    }
+    Ok(cleared)
+}
+
 /// A file can vanish between launches: cleaned temp folders, a moved download
 /// directory, the user emptying the Trash. Rows that still claim a missing file
 /// would open a player that fails silently, so clear the claim and let the
 /// library offer a fresh download.
 pub async fn reconcile_missing_files(pool: &SqlitePool) -> Result<usize, String> {
-    let rows: Vec<(String, String)> =
-        sqlx::query_as("SELECT id, file_path FROM videos WHERE file_path IS NOT NULL")
+    let ids: Vec<(String,)> =
+        sqlx::query_as("SELECT id FROM videos WHERE file_path IS NOT NULL")
             .fetch_all(pool)
             .await
             .map_err(|e| e.to_string())?;
-
-    let mut cleared = 0;
-    for (id, path) in rows {
-        if std::path::Path::new(&path).exists() {
-            continue;
-        }
-        sqlx::query(
-            "UPDATE videos SET file_path=NULL, file_size=NULL, thumbnail_path=NULL, downloaded_at=NULL WHERE id=?",
-        )
-        .bind(&id)
-        .execute(pool)
-        .await
-        .map_err(|e| e.to_string())?;
-        cleared += 1;
-    }
-    Ok(cleared)
+    let ids: Vec<String> = ids.into_iter().map(|row| row.0).collect();
+    Ok(clear_missing_files(pool, &ids).await?.len())
 }
 
 #[cfg(test)]
@@ -165,6 +184,42 @@ mod tests {
                 .unwrap();
         assert!(path.is_none());
         assert!(thumb.is_none());
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn clears_only_the_rows_it_was_asked_about() {
+        let pool = test_pool().await;
+        let dir = std::env::temp_dir().join(format!("yank-scoped-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let kept = dir.join("kept.mp4");
+        std::fs::write(&kept, b"x").unwrap();
+        let kept = kept.to_string_lossy().to_string();
+        let missing = dir.join("missing.mp4").to_string_lossy().to_string();
+
+        insert_video(&pool, "kept", Some(&kept)).await;
+        insert_video(&pool, "missing", Some(&missing)).await;
+
+        // Asking about a healthy row must not touch the unrelated broken one.
+        assert!(clear_missing_files(&pool, &["kept".to_string()])
+            .await
+            .unwrap()
+            .is_empty());
+        let (path,): (Option<String>,) =
+            sqlx::query_as("SELECT file_path FROM videos WHERE id='missing'")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert!(path.is_some());
+
+        let cleared = clear_missing_files(
+            &pool,
+            &["kept".to_string(), "missing".to_string()],
+        )
+        .await
+        .unwrap();
+        assert_eq!(cleared, vec!["missing".to_string()]);
 
         let _ = std::fs::remove_dir_all(&dir);
     }

@@ -28,6 +28,8 @@ pub fn run() {
             commands::set_setting,
             commands::list_videos,
             commands::list_folders,
+            commands::ensure_playlist_folder,
+            commands::prune_missing_videos,
             commands::create_folder,
             commands::rename_folder,
             commands::delete_folder,

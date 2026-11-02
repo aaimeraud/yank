@@ -54,7 +54,7 @@ describe("queueEntries", () => {
     const metas = [meta("a"), meta("b"), meta("c")];
 
     const queued = await queueEntries(
-      { metas, playlistId: "p1", downloadDir: "/tmp/yank", formatPref: "video", videos: [], queue: [] },
+      { metas, playlistId: "p1", folderId: "f1", downloadDir: "/tmp/yank", formatPref: "video", videos: [], queue: [] },
       invoke,
     );
 
@@ -69,6 +69,7 @@ describe("queueEntries", () => {
       expect(added.url).toBe(m.webpage_url);
       expect(added.id).toBe(m.id);
       expect(added.playlist_id).toBe("p1");
+      expect(added.folder_id).toBe("f1");
       expect(added.source).toBe("Youtube");
       expect(starts[i].args).toMatchObject({
         videoId: m.id,
@@ -87,6 +88,7 @@ describe("queueEntries", () => {
       {
         metas,
         playlistId: "p1",
+        folderId: null,
         downloadDir: "/tmp/yank",
         formatPref: "video",
         videos: [video("done", { file_path: "/tmp/done.mp4" })],
@@ -107,6 +109,7 @@ describe("queueEntries", () => {
       {
         metas: [meta("ghost")],
         playlistId: "p1",
+        folderId: null,
         downloadDir: "/tmp/yank",
         formatPref: "video",
         videos: [video("ghost")],
@@ -126,6 +129,7 @@ describe("queueEntries", () => {
       {
         metas: [meta("a", { webpage_url: null })],
         playlistId: null,
+        folderId: null,
         downloadDir: "/tmp/yank",
         formatPref: "video",
         videos: [],
@@ -145,6 +149,7 @@ describe("queueEntries", () => {
       {
         metas: [meta("", { webpage_url: "https://www.youtube.com/watch?v=unknown" })],
         playlistId: null,
+        folderId: null,
         downloadDir: "/tmp/yank",
         formatPref: "video",
         videos: [],

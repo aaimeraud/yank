@@ -5,6 +5,8 @@ type Invoke = (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;
 export interface QueueEntriesOptions {
   metas: Metadata[];
   playlistId: string | null;
+  /** Folder resolved from the playlist title, so every entry lands in it. */
+  folderId: string | null;
   downloadDir: string;
   formatPref: string;
   videos: Video[];
@@ -19,7 +21,7 @@ const ACTIVE = new Set(["queued", "downloading", "paused"]);
  * playlist turned out to be fully downloaded already.
  */
 export async function queueEntries(
-  { metas, playlistId, downloadDir, formatPref, videos, queue }: QueueEntriesOptions,
+  { metas, playlistId, folderId, downloadDir, formatPref, videos, queue }: QueueEntriesOptions,
   invoke: Invoke,
   newId: () => string = () => crypto.randomUUID(),
 ): Promise<number> {
@@ -50,6 +52,7 @@ export async function queueEntries(
         last_position: 0,
         watched: false,
         playlist_id: playlistId,
+        folder_id: folderId,
       },
     });
     await invoke("start_download", {

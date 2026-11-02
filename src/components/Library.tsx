@@ -1,14 +1,19 @@
-import { useEffect, useState } from "react";
 import type { Folder, Video } from "../types";
-import { ALL, UNFILED, filterVideos } from "../lib/libraryFilter";
+import { ALL, UNFILED } from "../lib/libraryFilter";
 import FolderBar from "./FolderBar";
 import VideoCard from "./VideoCard";
 
 interface Props {
   videos: Video[];
+  total: number;
+  unfiled: number;
+  selected: string;
   folders: Folder[];
+  onSelect: (id: string) => void;
   onPlay: (video: Video) => void;
   onDownload: (video: Video) => void;
+  onPlayNext: (video: Video) => void;
+  onQueue: (video: Video) => void;
   onCreateFolder: (name: string) => Promise<Folder | null>;
   onRenameFolder: (id: string, name: string) => Promise<unknown>;
   onDeleteFolder: (id: string) => Promise<unknown>;
@@ -18,28 +23,21 @@ interface Props {
 
 export default function Library({
   videos,
+  total,
+  unfiled,
+  selected,
   folders,
+  onSelect,
   onPlay,
   onDownload,
+  onPlayNext,
+  onQueue,
   onCreateFolder,
   onRenameFolder,
   onDeleteFolder,
   onMoveVideo,
   onRemoveVideo,
 }: Props) {
-  const [selected, setSelected] = useState<string>(ALL);
-
-  // Deleting the folder being viewed must not leave the grid filtered by an id
-  // that no longer exists.
-  useEffect(() => {
-    if (selected !== ALL && selected !== UNFILED && !folders.some((f) => f.id === selected)) {
-      setSelected(ALL);
-    }
-  }, [folders, selected]);
-
-  const visible = filterVideos(videos, selected);
-
-  const unfiled = videos.filter((video) => !video.folder_id).length;
   const activeFolder = folders.find((folder) => folder.id === selected);
 
   const empty =
@@ -53,25 +51,27 @@ export default function Library({
     <>
       <FolderBar
         folders={folders}
-        total={videos.length}
+        total={total}
         unfiled={unfiled}
         selected={selected}
-        onSelect={setSelected}
+        onSelect={onSelect}
         onCreate={onCreateFolder}
         onRename={onRenameFolder}
         onDelete={onDeleteFolder}
       />
-      {visible.length === 0 ? (
+      {videos.length === 0 ? (
         <p className="empty">{empty}</p>
       ) : (
         <div className="grid">
-          {visible.map((video) => (
+          {videos.map((video) => (
             <VideoCard
               key={video.id}
               video={video}
               folders={folders}
               onPlay={onPlay}
               onDownload={onDownload}
+              onPlayNext={onPlayNext}
+              onQueue={onQueue}
               onMove={onMoveVideo}
               onRemove={onRemoveVideo}
             />

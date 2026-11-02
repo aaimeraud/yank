@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Folder, Video } from "../types";
+import { ALL, UNFILED, filterVideos } from "../lib/libraryFilter";
 
 export function useLibrary() {
   const [videos, setVideos] = useState<Video[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [selectedFolder, setSelectedFolder] = useState<string>(ALL);
 
   const refresh = useCallback(async () => {
     const [nextVideos, nextFolders] = await Promise.all([
@@ -18,6 +20,29 @@ export function useLibrary() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Deleting the folder being viewed must not leave the grid filtered by an id
+  // that no longer exists.
+  useEffect(() => {
+    if (
+      selectedFolder !== ALL &&
+      selectedFolder !== UNFILED &&
+      !folders.some((folder) => folder.id === selectedFolder)
+    ) {
+      setSelectedFolder(ALL);
+    }
+  }, [folders, selectedFolder]);
+
+  // The visible order is the implicit autoplay queue, so it lives here where
+  // both the grid and the player can read the same list.
+  const visibleVideos = useMemo(
+    () => filterVideos(videos, selectedFolder),
+    [videos, selectedFolder],
+  );
+  const unfiledCount = useMemo(
+    () => videos.filter((video) => !video.folder_id).length,
+    [videos],
+  );
 
   // Every mutation refreshes both lists: moving a video changes a folder count,
   // and deleting a folder changes every video that was inside it.
@@ -70,6 +95,10 @@ export function useLibrary() {
   return {
     videos,
     folders,
+    visibleVideos,
+    unfiledCount,
+    selectedFolder,
+    setSelectedFolder,
     refresh,
     createFolder,
     renameFolder,

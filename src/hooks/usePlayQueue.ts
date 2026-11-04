@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { api } from "../api";
 import type { Video } from "../types";
 import { enqueueId, playNextId, takeNextPlayable } from "../lib/playQueue";
 
@@ -38,7 +38,7 @@ export function usePlayQueue(videos: Video[], onFileMissing?: () => Promise<void
   const dropMissing = useCallback(
     async (candidates: string[]): Promise<Set<string>> => {
       if (candidates.length === 0) return new Set();
-      const missing = await invoke<string[]>("prune_missing_videos", { ids: candidates });
+      const missing = await api.pruneMissingVideos(candidates);
       if (missing.length > 0) await onFileMissing?.();
       return new Set(missing);
     },

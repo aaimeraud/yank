@@ -1,104 +1,162 @@
-import type { QueueItem, Video } from "../types";
+import { useState } from "react";
+import { api } from "../api";
+import { copyText } from "../lib/clipboard";
 import { displayTitle } from "../lib/display";
+import { formatEta, formatSpeed } from "../lib/format";
+import { attempt, notify } from "../lib/notify";
+import {
+  STATUS_LABEL,
+  errorHeadline,
+  groupProgress,
+  groupQueue,
+  groupSummary,
+  isActive,
+  isFinished,
+  type QueueGroup,
+} from "../lib/queueGroups";
+import type { QueueEntry } from "../types";
+import SourceIcon from "./SourceIcon";
 
-interface Props {
-  queue: QueueItem[];
-  videos: Video[];
-  onPause: (id: string) => void;
-  onResume: (id: string) => void;
-  onCancel: (id: string) => void;
-  onRemove: (id: string) => void;
-  onClearFinished: () => void;
-  onRetryFailed: () => void;
+/** Every queue action the view can trigger, by queue id. */
+export interface QueueActions {
+  pause: (id: string) => void;
+  resume: (id: string) => void;
+  cancel: (id: string) => void;
+  remove: (id: string) => void;
+  clearFinished: () => void;
+  pauseAll: () => void;
+  resumeAll: () => void;
+  retryFailed: () => void;
 }
 
-const speed = (raw: string | null) => {
-  if (!raw) return "";
-  const n = Number(raw);
-  if (!isFinite(n) || n <= 0) return "";
-  return n >= 1e6 ? `${(n / 1e6).toFixed(1)} MB/s` : `${Math.round(n / 1e3)} KB/s`;
-};
+interface Props {
+  queue: QueueEntry[];
+  actions: QueueActions;
+}
 
-const eta = (raw: string | null) => {
-  if (!raw) return "";
-  const n = Number(raw);
-  if (!isFinite(n) || n <= 0) return "";
-  const m = Math.floor(n / 60);
-  const s = Math.round(n % 60);
-  return m > 0 ? `${m}m ${s}s left` : `${s}s left`;
-};
+export default function Downloads({ queue, actions }: Props) {
+  if (queue.length === 0) {
+    return (
+      <p className="empty">
+        Nothing downloading. Paste a video, playlist or channel URL in the sidebar.
+      </p>
+    );
+  }
 
-const label = (status: string) =>
-  status === "queued" ? "Queued"
-  : status === "downloading" ? "Downloading"
-  : status === "paused" ? "Paused"
-  : status === "done" ? "Done"
-  : status === "failed" ? "Failed"
-  : status === "cancelled" ? "Cancelled"
-  : status;
-
-export default function Downloads({
-  queue,
-  videos,
-  onPause,
-  onResume,
-  onCancel,
-  onRemove,
-  onClearFinished,
-  onRetryFailed,
-}: Props) {
-  if (queue.length === 0) return <p className="empty">No downloads.</p>;
-
-  const failed = queue.filter((q) => q.status === "failed").length;
-  const hasFinished = queue.some(
-    (q) => q.status === "done" || q.status === "failed" || q.status === "cancelled",
-  );
+  const count = (test: (entry: QueueEntry) => boolean) => queue.filter(test).length;
+  const active = count((e) => isActive(e.status));
+  const paused = count((e) => e.status === "paused");
+  const failed = count((e) => e.status === "failed");
+  const finished = count((e) => isFinished(e.status));
 
   return (
     <>
-      {hasFinished && (
-        <div className="queue-head">
-          {failed > 0 && (
-            <button onClick={onRetryFailed}>
-              Retry failed ({failed})
-            </button>
-          )}
-          {hasFinished && <button onClick={onClearFinished}>Clear finished</button>}
-        </div>
+      <div className="queue-head">
+        {active > 0 && <button onClick={actions.pauseAll}>Pause all</button>}
+        {paused > 0 && <button onClick={actions.resumeAll}>Resume all ({paused})</button>}
+        {failed > 0 && <button onClick={actions.retryFailed}>Retry failed ({failed})</button>}
+        {finished > 0 && <button onClick={actions.clearFinished}>Clear finished</button>}
+      </div>
+      {groupQueue(queue).map((group) =>
+        group.title === null ? (
+          <ul className="queue" key={group.key}>
+            <QueueRow entry={group.entries[0]} actions={actions} />
+          </ul>
+        ) : (
+          <PlaylistGroup key={group.key} group={group} actions={actions} />
+        ),
       )}
-      <ul className="queue">
-        {queue.map((q) => {
-          const video = videos.find((v) => v.id === q.video_id);
-          const isActive = q.status === "queued" || q.status === "downloading";
-          const isPaused = q.status === "paused";
-          const isFailed = q.status === "failed";
-          const isFinished = q.status === "done" || isFailed || q.status === "cancelled";
-          const meta =
-            q.status === "downloading"
-              ? [speed(q.speed), eta(q.eta)].filter(Boolean).join(" · ")
-              : q.status === "queued"
-                ? "Waiting for a slot"
-                : q.status === "paused"
-                  ? "Resumes where it left off"
-                  : "";
-          return (
-            <li key={q.id}>
-              <div className="qmain">
-                <span className="qtitle">{video ? displayTitle(video) : "Download"}</span>
-                <span className="qmeta">{meta}</span>
-              </div>
-              <progress value={q.progress} max={100} />
-              <span className={`qstatus ${q.status}`}>{label(q.status)}</span>
-              {q.error && <span className="err" title={q.error}>{q.error.slice(0, 80)}</span>}
-              {isActive && <button onClick={() => onPause(q.id)}>Pause</button>}
-              {isActive && <button onClick={() => onCancel(q.id)}>Cancel</button>}
-              {isPaused && <button onClick={() => onResume(q.id)}>Resume</button>}
-              {isFailed && <button onClick={() => onResume(q.id)}>Retry</button>}
-              {(isPaused || isFinished) && <button onClick={() => onRemove(q.id)}>Remove</button>}
-            </li>
-          );
-        })}
-      </ul>
     </>
   );
+}
+
+function PlaylistGroup({ group, actions }: { group: QueueGroup; actions: QueueActions }) {
+  return (
+    <section className="queue-group" aria-label={group.title ?? undefined}>
+      <header className="queue-group-head">
+        <div className="qmain">
+          <span className="qtitle">{group.title}</span>
+          <span className="qmeta">{groupSummary(group)}</span>
+        </div>
+        <progress value={groupProgress(group)} max={100} aria-label="Playlist progress" />
+      </header>
+      <ul className="queue">
+        {group.entries.map((entry) => (
+          <QueueRow key={entry.id} entry={entry} actions={actions} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function QueueRow({ entry, actions }: { entry: QueueEntry; actions: QueueActions }) {
+  const [expanded, setExpanded] = useState(false);
+  const { status } = entry;
+  const failed = status === "failed";
+  const title = displayTitle(entry);
+
+  const copyDiagnostics = async () => {
+    const text = await attempt(() => api.downloadDiagnostics(entry.id));
+    if (text && (await attempt(() => copyText(text))) !== undefined) {
+      notify.info("Diagnostics copied.");
+    }
+  };
+
+  return (
+    <li className={"queue-row" + (failed ? " has-error" : "")}>
+      <div className="queue-line">
+        <SourceIcon source={entry.source} size={15} />
+        <div className="qmain">
+          <span className="qtitle" title={title}>
+            {title}
+          </span>
+          <span className="qmeta">{rowMeta(entry)}</span>
+        </div>
+        <progress value={entry.progress} max={100} aria-label={`${title} progress`} />
+        <span className={`qstatus ${status}`}>{STATUS_LABEL[status]}</span>
+        <div className="qactions">
+          {isActive(status) && <button onClick={() => actions.pause(entry.id)}>Pause</button>}
+          {isActive(status) && <button onClick={() => actions.cancel(entry.id)}>Cancel</button>}
+          {status === "paused" && <button onClick={() => actions.resume(entry.id)}>Resume</button>}
+          {failed && <button onClick={() => actions.resume(entry.id)}>Retry</button>}
+          {(status === "paused" || isFinished(status)) && (
+            <button onClick={() => actions.remove(entry.id)}>Remove</button>
+          )}
+        </div>
+      </div>
+      {failed && entry.error && (
+        <div className="queue-error">
+          <button
+            className="queue-error-toggle"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((open) => !open)}
+          >
+            <span className="err">{errorHeadline(entry.error)}</span>
+            <span className="queue-error-more">{expanded ? "Hide details" : "Details"}</span>
+          </button>
+          {expanded && (
+            <>
+              <pre className="queue-error-log">{entry.error}</pre>
+              <button onClick={copyDiagnostics}>Copy diagnostics</button>
+            </>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
+function rowMeta(entry: QueueEntry): string {
+  switch (entry.status) {
+    case "downloading":
+      return [formatSpeed(entry.speed), formatEta(entry.eta)].filter(Boolean).join(" · ") || "Starting…";
+    case "queued":
+      return "Waiting for a free slot";
+    case "paused":
+      return "Resumes where it left off";
+    case "done":
+      return entry.format === "audio" ? "Audio" : "";
+    default:
+      return "";
+  }
 }

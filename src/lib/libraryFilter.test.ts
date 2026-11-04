@@ -1,20 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { Video } from "../types";
+import { makeVideo } from "../test/fixtures";
 import { ALL, UNFILED, filterVideos } from "./libraryFilter";
 
-const video = (id: string, folderId: string | null): Video => ({
-  id,
-  title: `Video ${id}`,
-  uploader: null,
-  duration: null,
-  thumbnail_path: null,
-  source: "Youtube",
-  url: `https://example.com/${id}`,
-  file_path: null,
-  watched: false,
-  last_position: 0,
-  folder_id: folderId,
-});
+const video = (id: string, folderId: string | null): Video =>
+  makeVideo(id, { file_path: null, folder_id: folderId });
 
 const videos = [video("a", "music"), video("b", null), video("c", "music"), video("d", "talks")];
 

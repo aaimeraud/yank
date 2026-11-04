@@ -1,27 +1,21 @@
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import type { Settings as SettingsValue } from "../hooks/useSettings";
+import { api, type SettingKey } from "../api";
+import { attempt } from "../lib/notify";
+import { FORMAT_OPTIONS } from "../lib/downloadFormats";
+import type { Settings as SettingsValue, ToolchainReport } from "../types";
 
 interface Props {
   settings: SettingsValue;
-  onUpdate: <K extends keyof SettingsValue>(key: K, value: SettingsValue[K]) => Promise<void>;
+  onUpdate: (key: SettingKey, value: string) => Promise<void>;
   onPickFolder: () => void;
   onPickCookies: () => void;
 }
 
-const QUALITY = [
-  { value: "video", label: "Video · MP4 (H.264)" },
-  { value: "audio", label: "Audio only · M4A" },
-  { value: "original", label: "Original · best available" },
-];
-
 export default function Settings({ settings, onUpdate, onPickFolder, onPickCookies }: Props) {
-  const [version, setVersion] = useState<string | null>(null);
+  const [tools, setTools] = useState<ToolchainReport | null>(null);
 
   useEffect(() => {
-    invoke<string>("ytdlp_version")
-      .then(setVersion)
-      .catch(() => setVersion(null));
+    void attempt(api.toolchainInfo).then((report) => report && setTools(report));
   }, []);
 
   return (
@@ -29,44 +23,30 @@ export default function Settings({ settings, onUpdate, onPickFolder, onPickCooki
       <div className="settings-group">
         <h3>Downloads</h3>
 
-        <div className="setting-row">
-          <div>
-            <label>Folder</label>
-            <p>Where videos and thumbnails are saved.</p>
-          </div>
-          <div className="setting-control">
-            <span className="path" title={settings.download_dir ?? undefined}>
-              {settings.download_dir ?? "Not set"}
-            </span>
-            <button onClick={onPickFolder}>Choose…</button>
-          </div>
-        </div>
+        <Row label="Folder" hint="Where videos and thumbnails are saved. Playlists get a subfolder.">
+          <span className="path" title={settings.download_dir}>
+            {settings.download_dir}
+          </span>
+          <button onClick={onPickFolder}>Choose…</button>
+        </Row>
 
-        <div className="setting-row">
-          <div>
-            <label>Format</label>
-            <p>Used for new downloads. H.264 keeps playback inside Yank reliable.</p>
-          </div>
+        <Row label="Format" hint="Default for new downloads. H.264 MP4 always plays inside Yank.">
           <select
-            value={settings.default_quality}
+            value={settings.default_format}
             onChange={(e) => onUpdate("default_quality", e.target.value)}
           >
-            {QUALITY.map((option) => (
+            {FORMAT_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
             ))}
           </select>
-        </div>
+        </Row>
 
-        <div className="setting-row">
-          <div>
-            <label>Concurrent downloads</label>
-            <p>Takes effect after restarting Yank.</p>
-          </div>
+        <Row label="Concurrent downloads" hint="Applies at once. Lowering it lets running downloads finish.">
           <select
             value={String(settings.concurrency)}
-            onChange={(e) => onUpdate("concurrency", Number(e.target.value))}
+            onChange={(e) => onUpdate("concurrency", e.target.value)}
           >
             {[1, 2, 3, 4].map((n) => (
               <option key={n} value={n}>
@@ -74,42 +54,92 @@ export default function Settings({ settings, onUpdate, onPickFolder, onPickCooki
               </option>
             ))}
           </select>
-        </div>
+        </Row>
 
-        <div className="setting-row">
-          <div>
-            <label>Cookies file</label>
-            <p>For private or age-restricted videos. Netscape cookies.txt format.</p>
-          </div>
-          <div className="setting-control">
-            <span className="path" title={settings.cookies_path ?? undefined}>
-              {settings.cookies_path || "None"}
-            </span>
-            <button onClick={onPickCookies}>Choose…</button>
-            {settings.cookies_path && (
-              <button onClick={() => onUpdate("cookies_path", "")}>Clear</button>
-            )}
-          </div>
-        </div>
+        <Row
+          label="Cookies file"
+          hint="For private, members-only or age-restricted videos (and most of X). Netscape cookies.txt."
+        >
+          <span className="path" title={settings.cookies_path ?? undefined}>
+            {settings.cookies_path ?? "None"}
+          </span>
+          <button onClick={onPickCookies}>Choose…</button>
+          {settings.cookies_path && <button onClick={() => onUpdate("cookies_path", "")}>Clear</button>}
+        </Row>
       </div>
 
       <div className="settings-group">
-        <h3>About</h3>
-        <div className="setting-row">
-          <div>
-            <label>yt-dlp</label>
-            <p>Download engine bundled with your local setup.</p>
-          </div>
-          <span className="path">{version ?? "Checking…"}</span>
-        </div>
-        <div className="setting-row">
-          <div>
-            <label>Yank</label>
-            <p>Personal macOS build. Downloads stay on this Mac.</p>
-          </div>
-          <span className="path">0.1.0</span>
-        </div>
+        <h3>Tools</h3>
+        <ToolRow
+          label="yt-dlp"
+          hint="Does the downloading. Update it with your package manager when a site breaks."
+          path={tools?.ytdlp_path}
+          detail={tools?.ytdlp_version}
+          loading={!tools}
+          install="brew install yt-dlp"
+        />
+        <ToolRow
+          label="ffmpeg"
+          hint="Merges video and audio into one file."
+          path={tools?.ffmpeg_path}
+          loading={!tools}
+          install="brew install ffmpeg"
+        />
+        <ToolRow
+          label="deno"
+          hint="Solves YouTube's player challenge. Without it many YouTube downloads fail."
+          path={tools?.deno_path}
+          loading={!tools}
+          install="brew install deno"
+        />
+        <Row label="Logs" hint="Every download and failure is written to yank.log.">
+          <button onClick={() => void attempt(api.openLogsFolder)}>Open in Finder</button>
+        </Row>
       </div>
     </div>
+  );
+}
+
+function Row({ label, hint, children }: { label: string; hint: string; children: React.ReactNode }) {
+  return (
+    <div className="setting-row">
+      <div>
+        <label>{label}</label>
+        <p>{hint}</p>
+      </div>
+      <div className="setting-control">{children}</div>
+    </div>
+  );
+}
+
+interface ToolRowProps {
+  label: string;
+  hint: string;
+  path: string | null | undefined;
+  detail?: string | null;
+  loading: boolean;
+  install: string;
+}
+
+function ToolRow({ label, hint, path, detail, loading, install }: ToolRowProps) {
+  let status: React.ReactNode;
+  if (loading) status = <span className="path">Checking…</span>;
+  else if (path)
+    status = (
+      <span className="path tool-ok" title={path}>
+        {detail ? `${detail} · ` : ""}
+        {path}
+      </span>
+    );
+  else
+    status = (
+      <span className="path tool-missing">
+        Not found. Install with <code>{install}</code>
+      </span>
+    );
+  return (
+    <Row label={label} hint={hint}>
+      {status}
+    </Row>
   );
 }

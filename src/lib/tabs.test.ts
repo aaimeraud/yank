@@ -1,21 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { Video } from "../types";
+import { makeVideo } from "../test/fixtures";
 import { advanceTabs } from "./tabs";
 
-const video = (id: string, overrides: Partial<Video> = {}): Video => ({
-  id,
-  title: `Video ${id}`,
-  uploader: null,
-  duration: null,
-  thumbnail_path: null,
-  source: "Youtube",
-  url: `https://www.youtube.com/watch?v=${id}`,
-  file_path: `/tmp/${id}.mp4`,
-  watched: false,
-  last_position: 0,
-  folder_id: null,
-  ...overrides,
-});
+const video = (id: string, overrides: Partial<Video> = {}): Video => makeVideo(id, overrides);
 
 describe("advanceTabs", () => {
   test("replaces the active tab in place and keeps the rest", () => {

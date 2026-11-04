@@ -1,19 +1,27 @@
+// The window: title-bar tabs, sidebar, and one of Library / Downloads /
+// Settings, or the player when a tab is open. State lives in hooks/; this
+// file only wires them together.
+
 import { useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
-import type { View, Video } from "./types";
+import { api } from "./api";
+import type { Format, View, Video } from "./types";
 import Sidebar from "./components/Sidebar";
-import Library from "./components/Library";
+import Library, { type LibraryActions } from "./components/Library";
 import Downloads from "./components/Downloads";
 import Settings from "./components/Settings";
 import TabBar from "./components/TabBar";
+import Toasts from "./components/Toasts";
 import VideoView from "./components/VideoView";
 import { useSettings } from "./hooks/useSettings";
 import { useLibrary } from "./hooks/useLibrary";
 import { useDownloads } from "./hooks/useDownloads";
 import { useTabs } from "./hooks/useTabs";
 import { usePlayQueue } from "./hooks/usePlayQueue";
-import { useDownloader } from "./hooks/useDownloader";
+import { copyText } from "./lib/clipboard";
+import { enqueueMessage } from "./lib/enqueue";
+import { attempt, notify, succeeds } from "./lib/notify";
 import { nextAfter } from "./lib/playQueue";
+import { isActive } from "./lib/queueGroups";
 import "./App.css";
 
 export default function App() {
@@ -24,96 +32,79 @@ export default function App() {
   const tabs = useTabs(library.videos);
   const playQueue = usePlayQueue(library.videos, library.refresh);
 
-  const downloader = useDownloader({
-    videos: library.videos,
-    queue: downloads.queue,
-    downloadDir: settings.settings.download_dir,
-    formatPref: settings.settings.default_quality,
-    onQueued: async (isPlaylist) => {
-      await Promise.all([library.refresh(), downloads.refresh()]);
-      if (isPlaylist) {
-        setView("downloads");
-        tabs.select(null);
-      }
-    },
-  });
-
+  /** Switching sections always leaves the player. */
   const navigate = (next: View) => {
     setView(next);
     tabs.select(null);
   };
 
-  const removeVideos = async (videoIds: string[], deleteFile: boolean) => {
-    if (!(await library.removeVideos(videoIds, deleteFile))) return false;
-    playQueue.removeMany(videoIds);
-    tabs.closeMany(videoIds);
+  const submitUrl = async (url: string, format: Format) => {
+    const summary = await attempt(() => api.enqueueUrl(url, format));
+    if (!summary) return false;
+    notify.info(enqueueMessage(summary));
+    await Promise.all([library.refresh(), downloads.refresh()]);
+    if (summary.is_playlist && summary.queued > 0) navigate("downloads");
+    return true;
+  };
+
+  const downloadMissing = async (video: Video) => {
+    if (await succeeds(() => api.downloadVideo(video.id))) {
+      notify.info(`Downloading "${video.title}".`);
+      await Promise.all([library.refresh(), downloads.refresh()]);
+    }
+  };
+
+  const removeVideos = async (ids: string[], deleteFile: boolean) => {
+    if (!(await library.removeVideos(ids, deleteFile))) return false;
+    playQueue.removeMany(ids);
+    tabs.closeMany(ids);
     return true;
   };
 
   // An explicit queue always wins; otherwise autoplay walks the visible grid.
   // nextAfter keeps a folder's last video from spilling into the rest of the
-  // library, while still handling a queued video opened from another folder.
-  // Every candidate is checked on disk first: a file can vanish mid-session.
+  // library. Every candidate is checked on disk first: a file can vanish
+  // mid-session.
   const playNextOnEnd = async (current: Video) => {
     const queued = await playQueue.takeNext(current.id);
-    if (queued) {
-      tabs.advance(queued);
-      return;
-    }
+    if (queued) return tabs.advance(queued);
     let candidate = nextAfter(current, library.visibleVideos, library.videos);
     while (candidate) {
-      if (await playQueue.verify(candidate)) {
-        tabs.advance(candidate);
-        return;
-      }
+      if (await playQueue.verify(candidate)) return tabs.advance(candidate);
       candidate = nextAfter(candidate, library.visibleVideos, library.videos);
     }
   };
 
   const playQueuedNow = async (video: Video) => {
     playQueue.remove(video.id);
-    if (!(await playQueue.verify(video))) {
-      alert("That file is gone. It has been removed from the library.");
-      return;
-    }
-    tabs.advance(video);
+    if (await playQueue.verify(video)) tabs.advance(video);
+    else notify.error("That file is gone. It has been removed from the library.");
+  };
+
+  const libraryActions: LibraryActions = {
+    play: tabs.open,
+    download: (video) => void downloadMissing(video),
+    playNext: playQueue.playNext,
+    queue: playQueue.enqueue,
+    reveal: (video) => void attempt(() => api.revealVideo(video.id)),
+    copyLink: (video) =>
+      void attempt(() => copyText(video.url)).then((done) => done !== undefined && notify.info("Link copied.")),
+    move: (id, folderId) => void library.moveVideos([id], folderId),
+    remove: (id, deleteFile) => void removeVideos([id], deleteFile),
+    createFolder: library.createFolder,
+    renameFolder: library.renameFolder,
+    deleteFolder: library.deleteFolder,
+    moveVideos: library.moveVideos,
+    removeVideos,
   };
 
   const activeVideo = tabs.activeVideo;
-
-  const downloadMissing = async (video: Video) => {
-    const dir =
-      settings.settings.download_dir ??
-      (await invoke<string | null>("get_setting", { key: "download_dir" })) ??
-      "";
-    if (!dir) {
-      alert("Pick a downloads folder in Settings first.");
-      return;
-    }
-    try {
-      await invoke("start_download", {
-        videoId: video.id,
-        url: video.url,
-        formatPref: settings.settings.default_quality,
-        downloadDir: dir,
-      });
-      setView("downloads");
-      tabs.select(null);
-      await Promise.all([library.refresh(), downloads.refresh()]);
-    } catch (e) {
-      alert(String(e));
-    }
-  };
+  const activeDownloads = downloads.queue.filter((entry) => isActive(entry.status)).length;
 
   return (
     <div className="app">
       <div className="titlebar" data-tauri-drag-region>
-        <TabBar
-          tabs={tabs.tabs}
-          activeId={tabs.activeId}
-          onSelect={tabs.select}
-          onClose={tabs.close}
-        />
+        <TabBar tabs={tabs.tabs} activeId={tabs.activeId} onSelect={tabs.select} onClose={tabs.close} />
         <div className="titlebar-drag" data-tauri-drag-region />
         {tabs.tabs.length === 0 && (
           <span className="titlebar-name" data-tauri-drag-region>
@@ -124,11 +115,10 @@ export default function App() {
       <div className="workspace">
         <Sidebar
           view={view}
-          setView={navigate}
-          url={downloader.url}
-          setUrl={downloader.setUrl}
-          onDownload={downloader.submit}
-          busy={downloader.busy}
+          onNavigate={navigate}
+          activeDownloads={activeDownloads}
+          defaultFormat={settings.settings?.default_format ?? "video"}
+          onSubmit={submitUrl}
         />
         <main className="content">
           <div className={"content-body" + (activeVideo ? " has-video" : "")}>
@@ -138,78 +128,48 @@ export default function App() {
                 autoPlay={tabs.autoPlay}
                 playSignal={tabs.playSignal}
                 queue={playQueue.items}
-                onEnded={() => playNextOnEnd(activeVideo)}
-                onPlayQueued={playQueuedNow}
+                onEnded={() => void playNextOnEnd(activeVideo)}
+                onPlayQueued={(video) => void playQueuedNow(video)}
                 onRemoveFromQueue={playQueue.remove}
                 onClearQueue={playQueue.clear}
                 onQueueOpened={playQueue.pruneMissing}
               />
             ) : (
-              <>
+              <section>
+                <h2>{SECTION_TITLES[view]}</h2>
                 {view === "library" && (
-                  <section>
-                    <h2>Library</h2>
-                    <Library
-                      videos={library.visibleVideos}
-                      total={library.videos.length}
-                      unfiled={library.unfiledCount}
-                      selected={library.selectedFolder}
-                      folders={library.folders}
-                      onSelect={library.setSelectedFolder}
-                      onPlay={tabs.open}
-                      onDownload={downloadMissing}
-                      onPlayNext={playQueue.playNext}
-                      onQueue={playQueue.enqueue}
-                      onCreateFolder={library.createFolder}
-                      onRenameFolder={library.renameFolder}
-                      onDeleteFolder={library.deleteFolder}
-                      onMoveVideos={library.moveVideos}
-                      onRemoveVideos={removeVideos}
-                    />
-                  </section>
+                  <Library
+                    videos={library.visibleVideos}
+                    folderTotal={library.folderTotal}
+                    libraryTotal={library.videos.length}
+                    unfiled={library.unfiledCount}
+                    folders={library.folders}
+                    query={library.query}
+                    onQueryChange={library.updateQuery}
+                    actions={libraryActions}
+                  />
                 )}
-                {view === "downloads" && (
-                  <section>
-                    <h2>Downloads</h2>
-                    <Downloads
-                      queue={downloads.queue}
-                      videos={library.videos}
-                      onPause={downloads.pause}
-                      onResume={(id) =>
-                        downloads.resume(
-                          id,
-                          settings.settings.default_quality,
-                          settings.settings.download_dir,
-                        )
-                      }
-                      onCancel={downloads.cancel}
-                      onRemove={downloads.remove}
-                      onClearFinished={downloads.clearFinished}
-                      onRetryFailed={() =>
-                        downloads.retryFailed(
-                          settings.settings.default_quality,
-                          settings.settings.download_dir,
-                        )
-                      }
-                    />
-                  </section>
+                {view === "downloads" && <Downloads queue={downloads.queue} actions={downloads} />}
+                {view === "settings" && settings.settings && (
+                  <Settings
+                    settings={settings.settings}
+                    onUpdate={settings.update}
+                    onPickFolder={settings.pickFolder}
+                    onPickCookies={settings.pickCookies}
+                  />
                 )}
-                {view === "settings" && (
-                  <section>
-                    <h2>Settings</h2>
-                    <Settings
-                      settings={settings.settings}
-                      onUpdate={settings.update}
-                      onPickFolder={settings.pickFolder}
-                      onPickCookies={settings.pickCookies}
-                    />
-                  </section>
-                )}
-              </>
+              </section>
             )}
           </div>
         </main>
       </div>
+      <Toasts />
     </div>
   );
 }
+
+const SECTION_TITLES: Record<View, string> = {
+  library: "Library",
+  downloads: "Downloads",
+  settings: "Settings",
+};

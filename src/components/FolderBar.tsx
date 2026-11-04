@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Folder } from "../types";
 import { ALL, UNFILED } from "../lib/libraryFilter";
+import { confirmAction } from "../lib/confirm";
 
 interface Props {
   folders: Folder[];
@@ -58,7 +59,11 @@ export default function FolderBar({
 
   const remove = async () => {
     if (!active) return;
-    if (!confirm(`Delete the folder "${active.name}"? Its videos stay in the library.`)) return;
+    const ok = await confirmAction(`Delete the folder "${active.name}"? Its videos stay in the library.`, {
+      okLabel: "Delete folder",
+      destructive: true,
+    });
+    if (!ok) return;
     await onDelete(active.id);
     setRenaming(false);
   };

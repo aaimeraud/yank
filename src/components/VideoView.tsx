@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { convertFileSrc } from "@tauri-apps/api/core";
+import { api } from "../api";
 import type { Video } from "../types";
 import { playbackSnapshot } from "../lib/playback";
 import { displayTitle } from "../lib/display";
-import SourceIcon, { sourceLabel } from "./SourceIcon";
+import { formatClock as fmt } from "../lib/format";
+import { sourceLabel } from "../lib/source";
+import SourceIcon from "./SourceIcon";
 import {
   Back10Icon,
   CloseIcon,
@@ -18,16 +21,25 @@ import {
 } from "./icons";
 
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+const VOLUME_KEY = "yank.volume";
 
-const fmt = (s: number) => {
-  if (!isFinite(s) || s < 0) return "0:00";
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const r = Math.floor(s % 60);
-  return h > 0
-    ? `${h}:${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`
-    : `${m}:${String(r).padStart(2, "0")}`;
-};
+/** The last volume, per machine. Storage can be unavailable; fall back to full. */
+function readStoredVolume(): number {
+  try {
+    const stored = Number(localStorage.getItem(VOLUME_KEY) ?? 1);
+    return Number.isFinite(stored) ? Math.min(1, Math.max(0, stored)) : 1;
+  } catch {
+    return 1;
+  }
+}
+
+function storeVolume(volume: number) {
+  try {
+    localStorage.setItem(VOLUME_KEY, String(volume));
+  } catch {
+    // Not worth bothering the user about.
+  }
+}
 
 interface Props {
   video: Video;
@@ -82,7 +94,7 @@ export default function VideoView({
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(() => Number(localStorage.getItem("yank.volume") ?? 1));
+  const [volume, setVolume] = useState(readStoredVolume);
   const [muted, setMuted] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [showResume, setShowResume] = useState(false);
@@ -99,7 +111,7 @@ export default function VideoView({
     );
     if (!force && Math.abs(position - savedRef.current) < 5) return;
     savedRef.current = position;
-    invoke("update_playback", { videoId: video.id, position, watched }).catch(() => {});
+    api.updatePlayback(video.id, position, watched).catch(() => {});
   };
 
   const showFlash = (text: string) => {
@@ -186,7 +198,7 @@ export default function VideoView({
         frozen?.duration ?? lastDurationRef.current,
       );
       if (position > 0 && position !== savedRef.current) {
-        invoke("update_playback", { videoId: video.id, position, watched }).catch(() => {});
+        api.updatePlayback(video.id, position, watched).catch(() => {});
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -242,7 +254,7 @@ export default function VideoView({
     el.muted = v === 0;
     setVolume(v);
     setMuted(v === 0);
-    localStorage.setItem("yank.volume", String(v));
+    storeVolume(v);
   };
 
   const toggleMute = () => {

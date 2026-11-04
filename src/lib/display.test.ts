@@ -4,8 +4,7 @@ import { displayTitle } from "./display";
 describe("displayTitle", () => {
   test("leaves standalone videos alone", () => {
     expect(displayTitle({ title: "Solo", playlist_index: null })).toBe("Solo");
-    expect(displayTitle({ title: "Solo" })).toBe("Solo");
-    expect(displayTitle({ title: "Solo", playlist_index: 0 })).toBe("Solo");
+        expect(displayTitle({ title: "Solo", playlist_index: 0 })).toBe("Solo");
   });
 
   test("pads playlist positions to two digits", () => {

@@ -103,6 +103,8 @@ commands and one event.
   that lands in the last milliseconds wins. The UI replays progress events
   received during a reload on top of the reload's result
   (`lib/queueGroups.ts::replayEvents`).
+- **"Move file to Trash"** goes through `disk.rs` (NSFileManager, ADR 0007).
+  Unit tests swap the Trash for a temp folder so they never touch yours.
 - **A video whose file disappeared** keeps its library entry (watched state,
   folder): `downloaded_at` records that it was downloaded once, and queue
   cleanup only deletes videos that never were.

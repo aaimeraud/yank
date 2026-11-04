@@ -171,8 +171,8 @@ function CardMenu({ video, folders, open, onOpenChange, actions }: MenuProps) {
   const remove = async (deleteFile: boolean) => {
     onOpenChange(false);
     if (deleteFile) {
-      const ok = await confirmAction(`Delete "${displayTitle(video)}" from disk? This cannot be undone.`, {
-        okLabel: "Delete",
+      const ok = await confirmAction(`Move "${displayTitle(video)}" to the Trash and remove it from the library?`, {
+        okLabel: "Move to Trash",
         destructive: true,
       });
       if (!ok) return;
@@ -219,7 +219,7 @@ function CardMenu({ video, folders, open, onOpenChange, actions }: MenuProps) {
           <button role="menuitem" onClick={() => void remove(false)}>Remove from library</button>
           {downloaded && (
             <button role="menuitem" className="danger" onClick={() => void remove(true)}>
-              Delete file…
+              Move file to Trash…
             </button>
           )}
         </div>

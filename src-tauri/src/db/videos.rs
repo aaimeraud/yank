@@ -146,7 +146,8 @@ pub async fn move_to_folder(
     Ok(())
 }
 
-/// Remove a video from the library, and with `delete_file` from disk too.
+/// Remove a video from the library. With `delete_file`, its file and
+/// thumbnail also go to the Trash (recoverable in Finder, see `disk.rs`).
 /// Refuses while a download is running, because deleting the row would leave
 /// a yt-dlp process nobody can cancel.
 pub async fn remove(pool: &SqlitePool, video_id: &str, delete_file: bool) -> AppResult<()> {
@@ -170,16 +171,22 @@ pub async fn remove(pool: &SqlitePool, video_id: &str, delete_file: bool) -> App
         .await?;
 
     if delete_file {
-        for path in [video.file_path, video.thumbnail_path].into_iter().flatten() {
-            match std::fs::remove_file(&path) {
-                Ok(()) => {}
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-                Err(e) => {
-                    return Err(AppError::user(format!(
-                        "Removed the entry, but could not delete {path}: {e}"
-                    )))
-                }
-            }
+        // Try every file even if one fails, so a stuck video does not also
+        // leave its thumbnail behind.
+        let failures: Vec<String> = [video.file_path, video.thumbnail_path]
+            .into_iter()
+            .flatten()
+            .filter_map(|path| {
+                crate::disk::move_to_trash(Path::new(&path))
+                    .err()
+                    .map(|e| format!("{path}: {e}"))
+            })
+            .collect();
+        if !failures.is_empty() {
+            return Err(AppError::user(format!(
+                "Removed from the library, but could not move to the Trash: {}",
+                failures.join("; ")
+            )));
         }
     }
     Ok(())
@@ -199,7 +206,7 @@ pub async fn remove_many(pool: &SqlitePool, ids: &[String], delete_file: bool) -
         [] => Ok(()),
         [only] => Err(AppError::user(only.clone())),
         [first, ..] => Err(AppError::user(format!(
-            "{} of {} videos were not removed. First reason: {first}",
+            "{} of {} videos had a problem. First: {first}",
             problems.len(),
             ids.len()
         ))),
@@ -308,7 +315,9 @@ mod tests {
         let pool = test_pool().await;
         let dir = temp_dir("remove");
         let kept = dir.join("kept.mp4");
-        let deleted = dir.join("deleted.mp4");
+        // Unique, so the test Trash cannot hold a leftover from another run.
+        let trashed_name = format!("{}.mp4", uuid::Uuid::new_v4());
+        let deleted = dir.join(&trashed_name);
         std::fs::write(&kept, b"x").unwrap();
         std::fs::write(&deleted, b"x").unwrap();
         video(&pool, "kept", Some(&kept.display().to_string())).await;
@@ -320,6 +329,10 @@ mod tests {
         assert!(kept.exists());
         remove(&pool, "deleted", true).await.unwrap();
         assert!(!deleted.exists());
+        // Regression: "Delete file" destroyed the file outright. It now goes
+        // to the Trash, where the user can still get it back.
+        assert!(crate::disk::in_test_trash(&trashed_name), "moved to the Trash, not destroyed");
+        crate::disk::empty_test_trash(&trashed_name);
         assert!(remove(&pool, "kept", false).await.is_err(), "already gone");
         assert_eq!(count(&pool, "queue_items").await, 0, "queue rows cascade");
 

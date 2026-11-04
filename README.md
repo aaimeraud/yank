@@ -12,7 +12,7 @@ and Yank downloads it, files it in a library, and plays it in its own player.
   log and a "Copy diagnostics" button.
 - **Library**: folders (a playlist gets its own, numbered in playlist order),
   search, filters by source and watch status, sorting, bulk move/delete,
-  Show in Finder, Copy link.
+  Show in Finder, Copy link. Deleting a file moves it to the Trash.
 - **Player**: tabs, resume where you stopped, watched at 90%, play queue,
   autoplay through a folder, keyboard shortcuts, picture in picture.
 

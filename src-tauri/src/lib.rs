@@ -4,6 +4,7 @@
 //! - `downloads/` the queue at runtime: enqueue, workers, retries.
 //! - `ytdlp/`     how yt-dlp is found, invoked and parsed.
 //! - `db/`        SQLite access, one file per table.
+//! - `disk`       moving deleted files to the Trash.
 //! - `settings`   user preferences with defaults.
 //! - `models`     types shared with the UI (`src/types.ts`).
 //!
@@ -11,6 +12,7 @@
 
 mod commands;
 mod db;
+mod disk;
 mod downloads;
 mod error;
 mod models;

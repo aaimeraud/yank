@@ -183,8 +183,10 @@ function BulkTools({ videos, folders, selection, actions }: BulkProps) {
     setMenu(null);
     const what = plural(ids.length, "video");
     const ok = await confirmAction(
-      deleteFile ? `Delete ${what} from disk? This cannot be undone.` : `Remove ${what} from the library? The files stay on disk.`,
-      { okLabel: deleteFile ? "Delete" : "Remove", destructive: deleteFile },
+      deleteFile
+        ? `Move ${what} to the Trash and remove ${ids.length === 1 ? "it" : "them"} from the library?`
+        : `Remove ${what} from the library? The files stay on disk.`,
+      { okLabel: deleteFile ? "Move to Trash" : "Remove", destructive: deleteFile },
     );
     if (ok) finish(await actions.removeVideos(ids, deleteFile));
   };
@@ -243,7 +245,7 @@ function BulkTools({ videos, folders, selection, actions }: BulkProps) {
             <div className="card-menu bulk-menu" role="menu">
               <button role="menuitem" onClick={() => void remove(false)}>Remove from library</button>
               <button role="menuitem" className="danger" onClick={() => void remove(true)}>
-                Delete files…
+                Move files to Trash…
               </button>
             </div>
           )}

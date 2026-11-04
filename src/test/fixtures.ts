@@ -36,7 +36,7 @@ export function makeQueueEntry(id: string, overrides: Partial<QueueEntry> = {}):
     created_at: 0,
     format: "video",
     title: `Video ${id}`,
-    url: `https://example.com/${id}`,
+    url: `https://www.youtube.com/watch?v=${id}`,
     source: "youtube",
     playlist_id: null,
     playlist_title: null,

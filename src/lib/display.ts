@@ -10,5 +10,5 @@ export function displayTitle(
 ): string {
   const index = video.playlist_index;
   if (!index || index < 1) return video.title;
-  return `${String(index).padStart(2, "0")}. ${video.title}`;
+  return `${String(index).padStart(2, "0") /* taste-skill-ignore: the playlist position is data */}. ${video.title}`;
 }

@@ -419,33 +419,28 @@ export default function VideoView({
         </button>
 
         <span className="vv-time">{fmt(progress)}</span>
-        <input
-          className="vv-seek"
-          type="range"
-          min={0}
-          max={duration || 0}
-          step={0.1}
-          value={progress}
-          onChange={seek}
-          aria-label="Seek"
-          style={{ "--pct": `${pct}%` } as React.CSSProperties}
-        />
+        <span className="vv-range vv-seek">
+          <span className="vv-range-fill" style={{ transform: `scaleX(${pct / 100})` }} />
+          <input type="range" min={0} max={duration || 0} step={0.1} value={progress} onChange={seek} aria-label="Seek" />
+        </span>
         <span className="vv-time">{fmt(duration)}</span>
 
         <div className="vv-volume">
           <button onClick={toggleMute} aria-label={muted ? "Unmute" : "Mute"}>
             {muted ? <MuteIcon size={18} /> : <VolumeIcon size={18} />}
           </button>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={muted ? 0 : volume}
-            onChange={changeVolume}
-            aria-label="Volume"
-            style={{ "--pct": `${volPct}%` } as React.CSSProperties}
-          />
+          <span className="vv-range">
+            <span className="vv-range-fill" style={{ transform: `scaleX(${volPct / 100})` }} />
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={muted ? 0 : volume}
+              onChange={changeVolume}
+              aria-label="Volume"
+            />
+          </span>
         </div>
 
         <button

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import type { Folder, Video } from "../types";
+import type { Folder, QueueEntry, Video } from "../types";
 import { displayTitle } from "../lib/display";
-import { formatDuration } from "../lib/format";
+import { formatDuration, formatEta, formatSpeed } from "../lib/format";
 import { confirmAction } from "../lib/confirm";
 import SourceIcon from "./SourceIcon";
 
@@ -20,6 +20,10 @@ export interface CardActions {
 
 interface Props {
   video: Video;
+  /** Position in the grid; staggers the entrance of the first rows. */
+  index: number;
+  /** The video's active download, if any: drawn live on the thumbnail. */
+  download: QueueEntry | null;
   folders: Folder[];
   /** Bulk selection mode: a click toggles instead of playing. */
   selecting: boolean;
@@ -28,7 +32,7 @@ interface Props {
   actions: CardActions;
 }
 
-export default function VideoCard({ video, folders, selecting, selected, onToggleSelect, actions }: Props) {
+export default function VideoCard({ video, index, download, folders, selecting, selected, onToggleSelect, actions }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const label = displayTitle(video);
   const downloaded = video.file_path !== null;
@@ -45,7 +49,8 @@ export default function VideoCard({ video, folders, selecting, selected, onToggl
 
   return (
     <div
-      className={"card" + (selected ? " selected" : "") + (downloaded ? "" : " missing")}
+      className={"card" + (selected ? " selected" : "") + (downloaded ? "" : download ? " incoming" : " missing")}
+      style={{ "--enter-delay": `${Math.min(index, 11) * 45}ms` } as React.CSSProperties}
       role={selecting ? "checkbox" : "button"}
       aria-checked={selecting ? selected : undefined}
       aria-label={label}
@@ -63,15 +68,17 @@ export default function VideoCard({ video, folders, selecting, selected, onToggl
         }
       }}
     >
-      <Thumbnail video={video} />
+      <Thumbnail video={video} download={download} />
 
       {selecting && (
         <span className={"card-check" + (selected ? " checked" : "")} aria-hidden="true">
-          {selected ? "✓" : ""}
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m2.5 6.25 2.25 2.25 4.75-5" />
+          </svg>
         </span>
       )}
 
-      {!selecting && !downloaded && (
+      {!selecting && !downloaded && !download && (
         <button
           className="card-download"
           onClick={(event) => {
@@ -100,15 +107,14 @@ export default function VideoCard({ video, folders, selecting, selected, onToggl
         <SourceIcon source={video.source} size={12} />
         <span>
           {video.uploader ?? "Unknown"}
-          {video.watched ? " · Watched" : ""}
-          {!downloaded ? " · Not downloaded" : ""}
+          {!downloaded && !download ? " · Not downloaded" : ""}
         </span>
       </div>
     </div>
   );
 }
 
-function Thumbnail({ video }: { video: Video }) {
+function Thumbnail({ video, download }: { video: Video; download: QueueEntry | null }) {
   const [broken, setBroken] = useState(false);
   const watchedRatio =
     video.duration && video.last_position > 0 && !video.watched
@@ -124,10 +130,24 @@ function Thumbnail({ video }: { video: Video }) {
           <SourceIcon source={video.source} size={28} />
         </span>
       )}
-      {video.duration ? <span className="thumb-duration">{formatDuration(video.duration)}</span> : null}
-      {watchedRatio > 0 && (
-        <span className="thumb-progress" style={{ width: `${watchedRatio * 100}%` }} aria-hidden="true" />
-      )}
+      {video.duration && !download ? <span className="thumb-duration">{formatDuration(video.duration)}</span> : null}
+      {download ? (
+        <div className="thumb-download" role="progressbar" aria-valuenow={Math.round(download.progress)} aria-valuemin={0} aria-valuemax={100} aria-label="Download progress">
+          <span className="thumb-download-text">
+            {download.status === "queued"
+              ? "Waiting for a slot"
+              : `${Math.round(download.progress)}%  ${[formatSpeed(download.speed), formatEta(download.eta)].filter(Boolean).join(" · ")}`}
+          </span>
+          <span className="thumb-download-bar">
+            <span style={{ transform: `scaleX(${download.progress / 100})` }} />
+          </span>
+        </div>
+      ) : watchedRatio > 0 ? (
+        <span className="thumb-progress" aria-hidden="true">
+          <span style={{ transform: `scaleX(${watchedRatio})` }} />
+        </span>
+      ) : null}
+      {video.watched && <span className="thumb-watched">Watched</span>}
     </div>
   );
 }

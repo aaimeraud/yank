@@ -49,3 +49,13 @@ export function formatBytes(bytes: number | null | undefined): string {
 export function plural(count: number, noun: string): string {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
+
+/** 11520 -> "3 h 12 min", 540 -> "9 min". For totals, not for a clock. */
+export function formatLongDuration(seconds: number): string {
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 1) return "under a minute";
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return `${m} min`;
+  return m === 0 ? `${h} h` : `${h} h ${m} min`;
+}

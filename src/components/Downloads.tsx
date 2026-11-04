@@ -78,7 +78,7 @@ function PlaylistGroup({ group, actions }: { group: QueueGroup; actions: QueueAc
           <span className="qtitle">{group.title}</span>
           <span className="qmeta">{groupSummary(group)}</span>
         </div>
-        <progress value={groupProgress(group)} max={100} aria-label="Playlist progress" />
+        <Meter value={groupProgress(group)} label="Playlist progress" />
       </header>
       <ul className="queue">
         {group.entries.map((entry) => (
@@ -103,7 +103,7 @@ function QueueRow({ entry, actions }: { entry: QueueEntry; actions: QueueActions
   };
 
   return (
-    <li className={"queue-row" + (failed ? " has-error" : "")}>
+    <li className={`queue-row is-${status}`}>
       <div className="queue-line">
         <SourceIcon source={entry.source} size={15} />
         <div className="qmain">
@@ -112,7 +112,7 @@ function QueueRow({ entry, actions }: { entry: QueueEntry; actions: QueueActions
           </span>
           <span className="qmeta">{rowMeta(entry)}</span>
         </div>
-        <progress value={entry.progress} max={100} aria-label={`${title} progress`} />
+        <Meter value={entry.progress} label={`${title} progress`} done={status === "done"} />
         <span className={`qstatus ${status}`}>{STATUS_LABEL[status]}</span>
         <div className="qactions">
           {isActive(status) && <button onClick={() => actions.pause(entry.id)}>Pause</button>}
@@ -143,6 +143,22 @@ function QueueRow({ entry, actions }: { entry: QueueEntry; actions: QueueActions
         </div>
       )}
     </li>
+  );
+}
+
+/** A progress bar: the filled part carries the data hue; done rows stay grey. */
+function Meter({ value, label, done = false }: { value: number; label: string; done?: boolean }) {
+  return (
+    <span
+      className={"meter" + (done ? " done" : "")}
+      role="progressbar"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(value)}
+    >
+      <span style={{ transform: `scaleX(${Math.min(100, Math.max(0, value)) / 100})` }} />
+    </span>
   );
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { makeQueueEntry } from "../test/fixtures";
-import { applyProgress, errorHeadline, replayEvents, groupProgress, groupQueue, groupSummary } from "./queueGroups";
+import { applyProgress, errorHeadline, intakeSummary, queueHeadline, replayEvents, groupProgress, groupQueue, groupSummary } from "./queueGroups";
 
 const playlistRow = (id: string, index: number, status: "done" | "failed" | "downloading" | "queued", progress = 0) =>
   makeQueueEntry(id, {
@@ -83,4 +83,36 @@ describe("errorHeadline", () => {
     expect(errorHeadline("")).toBe("");
     expect(errorHeadline(null)).toBe("");
   });
+});
+
+describe("intakeSummary", () => {
+  test("names the furthest-along download and averages active progress", () => {
+    const queue = [
+      makeQueueEntry("a", { status: "downloading", progress: 40, title: "Slow one" }),
+      makeQueueEntry("b", { status: "downloading", progress: 80, title: "Nearly there" }),
+      makeQueueEntry("c", { status: "queued", progress: 0 }),
+      makeQueueEntry("d", { status: "done", progress: 100 }),
+    ];
+    const summary = intakeSummary(queue);
+    expect(summary.active).toBe(3);
+    expect(summary.progress).toBe(40);
+    expect(summary.current?.title).toBe("Nearly there");
+    expect(summary.label).toBe("2 downloading, 1 waiting · 40%");
+  });
+
+  test("says when nothing runs, and mentions failures", () => {
+    expect(intakeSummary([]).label).toBe("Nothing downloading");
+    expect(intakeSummary([makeQueueEntry("x", { status: "failed" })]).label).toBe("1 failed");
+  });
+});
+
+test("queueHeadline lists what is in the queue in a fixed order", () => {
+  const queue = [
+    makeQueueEntry("a", { status: "done" }),
+    makeQueueEntry("b", { status: "failed" }),
+    makeQueueEntry("c", { status: "downloading" }),
+    makeQueueEntry("d", { status: "done" }),
+  ];
+  expect(queueHeadline(queue)).toBe("1 downloading · 1 failed · 2 done");
+  expect(queueHeadline([])).toBe("Nothing in the queue.");
 });

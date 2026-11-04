@@ -2,10 +2,11 @@
 // Settings, or the player when a tab is open. State lives in hooks/; this
 // file only wires them together.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { api } from "./api";
-import type { Format, View, Video } from "./types";
+import type { Format, QueueEntry, View, Video } from "./types";
 import Sidebar from "./components/Sidebar";
+import TopBar from "./components/TopBar";
 import Library, { type LibraryActions } from "./components/Library";
 import Downloads from "./components/Downloads";
 import Settings from "./components/Settings";
@@ -21,7 +22,7 @@ import { copyText } from "./lib/clipboard";
 import { enqueueMessage } from "./lib/enqueue";
 import { attempt, notify, succeeds } from "./lib/notify";
 import { nextAfter } from "./lib/playQueue";
-import { isActive } from "./lib/queueGroups";
+import { isActive, queueHeadline } from "./lib/queueGroups";
 import "./App.css";
 
 export default function App() {
@@ -81,6 +82,11 @@ export default function App() {
     else notify.error("That file is gone. It has been removed from the library.");
   };
 
+  const openFolder = (folder: string) => {
+    library.updateQuery({ folder });
+    navigate("library");
+  };
+
   const libraryActions: LibraryActions = {
     play: tabs.open,
     download: (video) => void downloadMissing(video),
@@ -91,7 +97,6 @@ export default function App() {
       void attempt(() => copyText(video.url)).then((done) => done !== undefined && notify.info("Link copied.")),
     move: (id, folderId) => void library.moveVideos([id], folderId),
     remove: (id, deleteFile) => void removeVideos([id], deleteFile),
-    createFolder: library.createFolder,
     renameFolder: library.renameFolder,
     deleteFolder: library.deleteFolder,
     moveVideos: library.moveVideos,
@@ -100,28 +105,36 @@ export default function App() {
 
   const activeVideo = tabs.activeVideo;
   const activeDownloads = downloads.queue.filter((entry) => isActive(entry.status)).length;
+  // Active rows by video, so library cards can show their download live.
+  const downloadsByVideo = useMemo(() => {
+    const map = new Map<string, QueueEntry>();
+    for (const entry of downloads.queue) if (isActive(entry.status)) map.set(entry.video_id, entry);
+    return map;
+  }, [downloads.queue]);
 
   return (
     <div className="app">
-      <div className="titlebar" data-tauri-drag-region>
-        <TabBar tabs={tabs.tabs} activeId={tabs.activeId} onSelect={tabs.select} onClose={tabs.close} />
-        <div className="titlebar-drag" data-tauri-drag-region />
-        {tabs.tabs.length === 0 && (
-          <span className="titlebar-name" data-tauri-drag-region>
-            Yank
-          </span>
-        )}
-      </div>
+      <TopBar
+        queue={downloads.queue}
+        defaultFormat={settings.settings?.default_format ?? "video"}
+        onSubmit={submitUrl}
+        onOpenDownloads={() => navigate("downloads")}
+      />
       <div className="workspace">
         <Sidebar
-          view={view}
+          view={activeVideo ? "library" : view}
           onNavigate={navigate}
           activeDownloads={activeDownloads}
-          defaultFormat={settings.settings?.default_format ?? "video"}
-          onSubmit={submitUrl}
+          folders={library.folders}
+          selectedFolder={library.query.folder}
+          libraryTotal={library.videos.length}
+          unfiled={library.unfiledCount}
+          onOpenFolder={openFolder}
+          onCreateFolder={library.createFolder}
         />
         <main className="content">
-          <div className={"content-body" + (activeVideo ? " has-video" : "")}>
+          <TabBar tabs={tabs.tabs} activeId={tabs.activeId} onSelect={tabs.select} onClose={tabs.close} />
+          <div className={"canvas" + (activeVideo ? " has-video" : "")}>
             {activeVideo ? (
               <VideoView
                 video={activeVideo}
@@ -135,28 +148,35 @@ export default function App() {
                 onQueueOpened={playQueue.pruneMissing}
               />
             ) : (
-              <section>
-                <h2>{SECTION_TITLES[view]}</h2>
+              <section className="screen" key={view}>
                 {view === "library" && (
                   <Library
                     videos={library.visibleVideos}
-                    folderTotal={library.folderTotal}
+                    folderVideos={library.folderVideos}
                     libraryTotal={library.videos.length}
-                    unfiled={library.unfiledCount}
                     folders={library.folders}
+                    downloads={downloadsByVideo}
                     query={library.query}
                     onQueryChange={library.updateQuery}
                     actions={libraryActions}
                   />
                 )}
-                {view === "downloads" && <Downloads queue={downloads.queue} actions={downloads} />}
+                {view === "downloads" && (
+                  <>
+                    <ScreenHead title="Downloads" sub={queueHeadline(downloads.queue)} />
+                    <Downloads queue={downloads.queue} actions={downloads} />
+                  </>
+                )}
                 {view === "settings" && settings.settings && (
-                  <Settings
-                    settings={settings.settings}
-                    onUpdate={settings.update}
-                    onPickFolder={settings.pickFolder}
-                    onPickCookies={settings.pickCookies}
-                  />
+                  <>
+                    <ScreenHead title="Settings" sub="Where downloads go, what they look like, and the tools behind them." />
+                    <Settings
+                      settings={settings.settings}
+                      onUpdate={settings.update}
+                      onPickFolder={settings.pickFolder}
+                      onPickCookies={settings.pickCookies}
+                    />
+                  </>
                 )}
               </section>
             )}
@@ -168,8 +188,13 @@ export default function App() {
   );
 }
 
-const SECTION_TITLES: Record<View, string> = {
-  library: "Library",
-  downloads: "Downloads",
-  settings: "Settings",
-};
+function ScreenHead({ title, sub }: { title: string; sub: string }) {
+  return (
+    <header className="screen-head">
+      <div className="screen-titles">
+        <h1 className="screen-title">{title}</h1>
+        <p className="screen-sub">{sub}</p>
+      </div>
+    </header>
+  );
+}

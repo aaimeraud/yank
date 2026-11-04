@@ -49,6 +49,12 @@ bun run tauri dev      # run the app with hot reload
 bun run check          # everything below, in order
 ```
 
+For design work, `bun run dev` and open http://localhost:1420 in any browser:
+outside Tauri the UI runs on a fake backend with sample data
+(`src/dev/browserPreview.ts`, development only). The visual direction is
+recorded in `.taste-skill/app/direction.json` and summed up at the top of
+`src/App.css`.
+
 | Command | What it checks | Time |
 | --- | --- | --- |
 | `bun test` | Frontend logic in `src/lib/` | < 1 s |

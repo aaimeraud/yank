@@ -20,8 +20,12 @@ export default function Settings({ settings, onUpdate, onPickFolder, onPickCooki
 
   return (
     <div className="settings">
-      <div className="settings-group">
-        <h3>Downloads</h3>
+      <section className="settings-section">
+        <div className="settings-intro">
+          <h2>Downloads</h2>
+          <p>Applies to the next download you start. Running downloads keep the settings they started with.</p>
+        </div>
+        <div className="settings-panel">
 
         <Row label="Folder" hint="Where videos and thumbnails are saved. Playlists get a subfolder.">
           <span className="path" title={settings.download_dir}>
@@ -66,10 +70,15 @@ export default function Settings({ settings, onUpdate, onPickFolder, onPickCooki
           <button onClick={onPickCookies}>Choose…</button>
           {settings.cookies_path && <button onClick={() => onUpdate("cookies_path", "")}>Clear</button>}
         </Row>
-      </div>
+        </div>
+      </section>
 
-      <div className="settings-group">
-        <h3>Tools</h3>
+      <section className="settings-section">
+        <div className="settings-intro">
+          <h2>Tools</h2>
+          <p>Yank runs the programs installed on this Mac. When a site breaks, updating yt-dlp almost always fixes it.</p>
+        </div>
+        <div className="settings-panel">
         <ToolRow
           label="yt-dlp"
           hint="Does the downloading. Update it with your package manager when a site breaks."
@@ -95,7 +104,8 @@ export default function Settings({ settings, onUpdate, onPickFolder, onPickCooki
         <Row label="Logs" hint="Every download and failure is written to yank.log.">
           <button onClick={() => void attempt(api.openLogsFolder)}>Open in Finder</button>
         </Row>
-      </div>
+        </div>
+      </section>
     </div>
   );
 }

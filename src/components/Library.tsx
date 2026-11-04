@@ -1,16 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import type { Folder, Video } from "../types";
+import type { Folder, QueueEntry, Video } from "../types";
 import { ALL, UNFILED } from "../lib/libraryFilter";
-import { isFiltered, type LibraryQuery } from "../lib/libraryView";
+import { isFiltered, sourceCounts, totalDuration, type LibraryQuery } from "../lib/libraryView";
 import { confirmAction } from "../lib/confirm";
-import { plural } from "../lib/format";
-import FolderBar from "./FolderBar";
+import { formatLongDuration, plural } from "../lib/format";
 import LibraryToolbar from "./LibraryToolbar";
 import VideoCard, { type CardActions } from "./VideoCard";
 
 /** Folder and bulk operations; each resolves to false when it failed. */
 export interface LibraryActions extends CardActions {
-  createFolder: (name: string) => Promise<Folder | null>;
   renameFolder: (id: string, name: string) => Promise<unknown>;
   deleteFolder: (id: string) => Promise<unknown>;
   moveVideos: (videoIds: string[], folderId: string | null) => Promise<boolean>;
@@ -20,53 +18,53 @@ export interface LibraryActions extends CardActions {
 interface Props {
   /** Already filtered and sorted (see lib/libraryView.ts). */
   videos: Video[];
-  /** Size of the current folder before search and filters. */
-  folderTotal: number;
+  /** The current folder before search and filters. */
+  folderVideos: Video[];
   libraryTotal: number;
-  unfiled: number;
   folders: Folder[];
+  /** Active queue rows by video id, for live progress on the cards. */
+  downloads: Map<string, QueueEntry>;
   query: LibraryQuery;
   onQueryChange: (patch: Partial<LibraryQuery>) => void;
   actions: LibraryActions;
 }
 
 export default function Library(props: Props) {
-  const { videos, folders, query, actions } = props;
+  const { videos, folderVideos, folders, query, actions } = props;
   const selection = useSelection(videos, query.folder);
-  const activeFolder = folders.find((folder) => folder.id === query.folder);
+  const activeFolder = folders.find((folder) => folder.id === query.folder) ?? null;
+  const title = activeFolder?.name ?? (query.folder === UNFILED ? "Unfiled" : "All videos");
 
   return (
     <>
-      <FolderBar
-        folders={folders}
-        total={props.libraryTotal}
-        unfiled={props.unfiled}
-        selected={query.folder}
-        onSelect={(folder) => props.onQueryChange({ folder })}
-        onCreate={actions.createFolder}
-        onRename={actions.renameFolder}
-        onDelete={actions.deleteFolder}
+      <LibraryHeader
+        title={title}
+        folderVideos={folderVideos}
+        downloading={folderVideos.filter((video) => props.downloads.has(video.id)).length}
+        folder={activeFolder}
+        actions={actions}
+        tools={videos.length > 0 && <BulkTools videos={videos} folders={folders} selection={selection} actions={actions} />}
       />
 
-      {props.folderTotal > 0 && (
+      {folderVideos.length > 0 && (
         <LibraryToolbar
           query={query}
           onChange={props.onQueryChange}
+          counts={sourceCounts(folderVideos)}
           shown={videos.length}
-          total={props.folderTotal}
         />
       )}
-
-      {videos.length > 0 && <BulkTools videos={videos} folders={folders} selection={selection} actions={actions} />}
 
       {videos.length === 0 ? (
         <p className="empty">{emptyMessage(query, activeFolder?.name, props.libraryTotal)}</p>
       ) : (
         <div className="grid">
-          {videos.map((video) => (
+          {videos.map((video, index) => (
             <VideoCard
               key={video.id}
               video={video}
+              index={index}
+              download={props.downloads.get(video.id) ?? null}
               folders={folders}
               selecting={selection.active}
               selected={selection.ids.has(video.id)}
@@ -77,6 +75,92 @@ export default function Library(props: Props) {
         </div>
       )}
     </>
+  );
+}
+
+interface HeaderProps {
+  title: string;
+  folderVideos: Video[];
+  downloading: number;
+  folder: Folder | null;
+  actions: LibraryActions;
+  tools: React.ReactNode;
+}
+
+/** The screen title, what the folder holds, and its own actions. */
+function LibraryHeader({ title, folderVideos, downloading, folder, actions, tools }: HeaderProps) {
+  const [renaming, setRenaming] = useState(false);
+  const [draft, setDraft] = useState("");
+  const missing = folderVideos.filter((video) => !video.file_path).length - downloading;
+  const facts = [plural(folderVideos.length, "video")];
+  if (folderVideos.length > 0) facts.push(formatLongDuration(totalDuration(folderVideos)));
+  if (downloading > 0) facts.push(`${downloading} downloading`);
+  if (missing > 0) facts.push(`${missing} not downloaded`);
+
+  useEffect(() => setRenaming(false), [folder?.id]);
+
+  const rename = async () => {
+    const name = draft.trim();
+    setRenaming(false);
+    if (folder && name && name !== folder.name) await actions.renameFolder(folder.id, name);
+  };
+
+  const remove = async () => {
+    if (!folder) return;
+    const ok = await confirmAction(`Delete the folder "${folder.name}"? Its videos stay in the library.`, {
+      okLabel: "Delete folder",
+      destructive: true,
+    });
+    if (ok) await actions.deleteFolder(folder.id);
+  };
+
+  return (
+    <header className="screen-head">
+      <div className="screen-titles">
+        {renaming ? (
+          <input
+            className="title-input"
+            autoFocus
+            aria-label="Folder name"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onBlur={() => void rename()}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") void rename();
+              if (event.key === "Escape") setRenaming(false);
+            }}
+          />
+        ) : (
+          <h1 className="screen-title">{title}</h1>
+        )}
+        <p className="screen-sub">
+          {facts.map((fact, i) => (
+            <span key={fact} className={i > 0 && fact.includes("downloading") ? "live-fact" : undefined}>
+              {fact}
+            </span>
+          ))}
+        </p>
+      </div>
+      <div className="screen-actions">
+        {folder && !renaming && (
+          <>
+            <button
+              className="ghost"
+              onClick={() => {
+                setDraft(folder.name);
+                setRenaming(true);
+              }}
+            >
+              Rename
+            </button>
+            <button className="ghost danger" onClick={() => void remove()}>
+              Delete folder
+            </button>
+          </>
+        )}
+        {tools}
+      </div>
+    </header>
   );
 }
 
@@ -193,20 +277,16 @@ function BulkTools({ videos, folders, selection, actions }: BulkProps) {
 
   if (!selection.active) {
     return (
-      <div className="library-tools">
-        <div className="library-tools-actions">
-          <button className="tool-link" onClick={selection.start}>
-            Select
-          </button>
-        </div>
-      </div>
+      <button className="ghost" onClick={selection.start}>
+        Select
+      </button>
     );
   }
 
   return (
-    <div className="library-tools">
+    <div className="bulk-tools" ref={ref}>
       <span className="bulk-count">{selection.ids.size} selected</span>
-      <div className="library-tools-actions" ref={ref}>
+      <div className="bulk-tools-actions">
         <button
           className="tool-link"
           onClick={() => selection.setIds(allSelected ? new Set() : new Set(videos.map((video) => video.id)))}

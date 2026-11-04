@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { makeVideo } from "../test/fixtures";
 import { ALL } from "./libraryFilter";
-import { DEFAULT_QUERY, isFiltered, sortVideos, viewVideos, type LibraryQuery } from "./libraryView";
+import { DEFAULT_QUERY, isFiltered, sortVideos, sourceCounts, totalDuration, viewVideos, type LibraryQuery } from "./libraryView";
 
 const library = [
   makeVideo("zoo", { title: "Me at the zoo", uploader: "jawed", duration: 19, source: "youtube" }),
@@ -76,4 +76,9 @@ test("isFiltered ignores the folder and the sort", () => {
   expect(isFiltered(query({ search: "x" }))).toBe(true);
   expect(isFiltered(query({ sources: ["twitch"] }))).toBe(true);
   expect(isFiltered(query({ status: "watched" }))).toBe(true);
+});
+
+test("sourceCounts and totalDuration describe the folder", () => {
+  expect(sourceCounts(library)).toEqual({ all: 4, youtube: 1, twitter: 1, twitch: 1, other: 1 });
+  expect(totalDuration(library)).toBe(19 + 3600 + 45);
 });

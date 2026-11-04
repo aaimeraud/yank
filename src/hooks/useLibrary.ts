@@ -37,7 +37,7 @@ export function useLibrary() {
   }, [folders, query]);
 
   const visibleVideos = useMemo(() => viewVideos(videos, query), [videos, query]);
-  const folderTotal = useMemo(() => filterVideos(videos, query.folder).length, [videos, query.folder]);
+  const folderVideos = useMemo(() => filterVideos(videos, query.folder), [videos, query.folder]);
   const unfiledCount = useMemo(() => videos.filter((video) => !video.folder_id).length, [videos]);
 
   const updateQuery = useCallback((patch: Partial<LibraryQuery>) => {
@@ -69,7 +69,7 @@ export function useLibrary() {
     query,
     updateQuery,
     visibleVideos,
-    folderTotal,
+    folderVideos,
     unfiledCount,
     refresh,
     createFolder,

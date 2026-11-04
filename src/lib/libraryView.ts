@@ -105,3 +105,15 @@ export function sortVideos(videos: Video[], sort: SortKey): Video[] {
 export function isFiltered(query: LibraryQuery): boolean {
   return query.search.trim() !== "" || query.sources.length > 0 || query.status !== "all";
 }
+
+/** How many videos of each source the current folder holds (before filters). */
+export function sourceCounts(videos: Video[]): Record<SourceKey | "all", number> {
+  const counts = { all: videos.length, youtube: 0, twitter: 0, twitch: 0, other: 0 };
+  for (const video of videos) counts[sourceKey(video.source)] += 1;
+  return counts;
+}
+
+/** Total running time of the videos, in seconds; unknown durations count as 0. */
+export function totalDuration(videos: Video[]): number {
+  return videos.reduce((sum, video) => sum + (video.duration ?? 0), 0);
+}

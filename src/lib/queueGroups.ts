@@ -116,6 +116,38 @@ export function errorHeadline(error: string | null | undefined): string {
   return (errorLine ?? lines[lines.length - 1] ?? "").replace(/^ERROR:\s*/, "");
 }
 
+export interface IntakeSummary {
+  /** Rows downloading or waiting for a slot. */
+  active: number;
+  /** Average progress of the active rows, 0 to 100. */
+  progress: number;
+  /** The row to name: the furthest-along download, else the first waiting. */
+  current: QueueEntry | null;
+  label: string;
+}
+
+/** What the top bar says about the queue right now. */
+export function intakeSummary(queue: QueueEntry[]): IntakeSummary {
+  const running = queue.filter((entry) => entry.status === "downloading");
+  const waiting = queue.filter((entry) => entry.status === "queued");
+  const active = running.length + waiting.length;
+  if (active === 0) {
+    const failed = queue.filter((entry) => entry.status === "failed").length;
+    return {
+      active: 0,
+      progress: 0,
+      current: null,
+      label: failed > 0 ? `${failed} failed` : "Nothing downloading",
+    };
+  }
+  const progress = [...running, ...waiting].reduce((sum, entry) => sum + entry.progress, 0) / active;
+  const current = [...running].sort((a, b) => b.progress - a.progress)[0] ?? waiting[0];
+  const parts = [];
+  if (running.length) parts.push(`${running.length} downloading`);
+  if (waiting.length) parts.push(`${waiting.length} waiting`);
+  return { active, progress, current, label: `${parts.join(", ")} · ${Math.round(progress)}%` };
+}
+
 export const STATUS_LABEL: Record<QueueStatus, string> = {
   queued: "Queued",
   downloading: "Downloading",
@@ -128,3 +160,22 @@ export const STATUS_LABEL: Record<QueueStatus, string> = {
 export const isActive = (status: QueueStatus) => status === "queued" || status === "downloading";
 export const isFinished = (status: QueueStatus) =>
   status === "done" || status === "failed" || status === "cancelled";
+
+/** The line under the Downloads title: "2 downloading · 1 failed · 4 done". */
+export function queueHeadline(queue: QueueEntry[]): string {
+  if (queue.length === 0) return "Nothing in the queue.";
+  const count = (status: QueueStatus) => queue.filter((entry) => entry.status === status).length;
+  const parts: string[] = [];
+  const order: [QueueStatus, string][] = [
+    ["downloading", "downloading"],
+    ["queued", "waiting"],
+    ["paused", "paused"],
+    ["failed", "failed"],
+    ["done", "done"],
+  ];
+  for (const [status, word] of order) {
+    const n = count(status);
+    if (n > 0) parts.push(`${n} ${word}`);
+  }
+  return parts.join(" · ");
+}

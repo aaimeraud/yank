@@ -1,0 +1,5 @@
+# Find yt-dlp, ffmpeg and deno outside PATH and pass their paths explicitly
+
+An app opened from Finder gets a minimal PATH (`/usr/bin:/bin:/usr/sbin:/sbin`), so the Homebrew and `~/.local/bin` installs that work in a terminal are invisible to it. yt-dlp itself was found by probing a few locations, but its helpers were not: yt-dlp looked up ffmpeg and deno on that same minimal PATH, so merging failed and YouTube's player challenge could not be solved (the source of many 403s). Yank now resolves all three once at startup from PATH plus `~/.local/bin`, `~/.deno/bin`, `/opt/homebrew/bin`, `/usr/local/bin` and `/usr/bin`, checks that each is an executable file without running it, and passes `--ffmpeg-location` and `--js-runtimes deno:<path>` on every yt-dlp call. Settings › Tools shows what was found and how to install what was not.
+
+This supersedes the bundling plan of ADR 0003 for now: bundling and auto-updating yt-dlp is still wanted, but using the user's own installs works today and keeps yt-dlp updates in the user's hands (`brew upgrade yt-dlp`), which matters because site breakages are fixed by yt-dlp releases within days.

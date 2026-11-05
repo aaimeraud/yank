@@ -24,6 +24,8 @@ interface Props {
   folders: Folder[];
   /** Active queue rows by video id, for live progress on the cards. */
   downloads: Map<string, QueueEntry>;
+  /** The video in the player, marked on its card. */
+  playingId: string | null;
   query: LibraryQuery;
   onQueryChange: (patch: Partial<LibraryQuery>) => void;
   actions: LibraryActions;
@@ -65,6 +67,7 @@ export default function Library(props: Props) {
               video={video}
               index={index}
               download={props.downloads.get(video.id) ?? null}
+              playing={props.playingId === video.id}
               folders={folders}
               selecting={selection.active}
               selected={selection.ids.has(video.id)}

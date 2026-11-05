@@ -1,6 +1,7 @@
-// The window: title-bar tabs, sidebar, and one of Library / Downloads /
-// Settings, or the player when a tab is open. State lives in hooks/; this
-// file only wires them together.
+// The window: top bar, sidebar, one screen (Library, Downloads, Settings or
+// the player), the queue panel on the right, and the player itself, which
+// stays alive across screens and shrinks to a mini player when you leave it.
+// State lives in hooks/; this file only wires it together.
 
 import { useMemo, useState } from "react";
 import { api } from "./api";
@@ -10,33 +11,60 @@ import TopBar from "./components/TopBar";
 import Library, { type LibraryActions } from "./components/Library";
 import Downloads from "./components/Downloads";
 import Settings from "./components/Settings";
-import TabBar from "./components/TabBar";
+import QueuePanel from "./components/QueuePanel";
 import Toasts from "./components/Toasts";
-import VideoView from "./components/VideoView";
+import Player from "./components/player/Player";
 import { useSettings } from "./hooks/useSettings";
 import { useLibrary } from "./hooks/useLibrary";
 import { useDownloads } from "./hooks/useDownloads";
-import { useTabs } from "./hooks/useTabs";
-import { usePlayQueue } from "./hooks/usePlayQueue";
+import { usePlayer } from "./hooks/usePlayer";
 import { copyText } from "./lib/clipboard";
 import { enqueueMessage } from "./lib/enqueue";
+import { ALL, UNFILED } from "./lib/libraryFilter";
 import { attempt, notify, succeeds } from "./lib/notify";
-import { nextAfter } from "./lib/playQueue";
+import { usePref } from "./lib/prefs";
 import { isActive, queueHeadline } from "./lib/queueGroups";
 import "./App.css";
 
 export default function App() {
   const [view, setView] = useState<View>("library");
+  const [sidebarCollapsed, setSidebarCollapsed] = usePref("sidebarCollapsed", false);
+  const [queueOpen, setQueueOpen] = usePref("queueOpen", false);
   const settings = useSettings();
   const library = useLibrary();
   const downloads = useDownloads(library.refresh);
-  const tabs = useTabs(library.videos);
-  const playQueue = usePlayQueue(library.videos, library.refresh);
+  const player = usePlayer(library.videos, library.refresh);
 
-  /** Switching sections always leaves the player. */
-  const navigate = (next: View) => {
-    setView(next);
-    tabs.select(null);
+  const playing = player.current;
+  // The player screen only exists while something plays.
+  const screen: View = view === "player" && !playing ? "library" : view;
+  const mode = screen === "player" ? "full" : "mini";
+
+  const folderLabel =
+    library.query.folder === ALL
+      ? "All videos"
+      : library.query.folder === UNFILED
+        ? "Unfiled"
+        : (library.folders.find((folder) => folder.id === library.query.folder)?.name ?? "the library");
+
+  /** Start a video from the grid: what is visible becomes "Next from …". */
+  const playFromLibrary = async (video: Video) => {
+    // The card of what is already playing just opens the player.
+    if (video.id === playing?.id) {
+      setView("player");
+      return;
+    }
+    const ok = await player.playVideo(video, {
+      label: folderLabel,
+      ids: library.visibleVideos.filter((v) => v.file_path).map((v) => v.id),
+    });
+    if (ok) setView("player");
+    else notify.error("That file is gone. The library has been updated.");
+  };
+
+  /** Play from the queue panel: keeps the context autoplay continues in. */
+  const playFromPanel = async (video: Video) => {
+    if (!(await player.playVideo(video))) notify.error("That file is gone. The library has been updated.");
   };
 
   const submitUrl = async (url: string, format: Format) => {
@@ -44,7 +72,7 @@ export default function App() {
     if (!summary) return false;
     notify.info(enqueueMessage(summary));
     await Promise.all([library.refresh(), downloads.refresh()]);
-    if (summary.is_playlist && summary.queued > 0) navigate("downloads");
+    if (summary.is_playlist && summary.queued > 0) setView("downloads");
     return true;
   };
 
@@ -57,44 +85,26 @@ export default function App() {
 
   const removeVideos = async (ids: string[], deleteFile: boolean) => {
     if (!(await library.removeVideos(ids, deleteFile))) return false;
-    playQueue.removeMany(ids);
-    tabs.closeMany(ids);
+    player.forget(ids);
     return true;
   };
 
-  // An explicit queue always wins; otherwise autoplay walks the visible grid.
-  // nextAfter keeps a folder's last video from spilling into the rest of the
-  // library. Every candidate is checked on disk first: a file can vanish
-  // mid-session.
-  const playNextOnEnd = async (current: Video) => {
-    const queued = await playQueue.takeNext(current.id);
-    if (queued) return tabs.advance(queued);
-    let candidate = nextAfter(current, library.visibleVideos, library.videos);
-    while (candidate) {
-      if (await playQueue.verify(candidate)) return tabs.advance(candidate);
-      candidate = nextAfter(candidate, library.visibleVideos, library.videos);
-    }
-  };
-
-  const playQueuedNow = async (video: Video) => {
-    playQueue.remove(video.id);
-    if (await playQueue.verify(video)) tabs.advance(video);
-    else notify.error("That file is gone. It has been removed from the library.");
-  };
-
-  const openFolder = (folder: string) => {
-    library.updateQuery({ folder });
-    navigate("library");
-  };
+  const copyLink = (video: Video) =>
+    void attempt(() => copyText(video.url)).then((done) => done !== undefined && notify.info("Link copied."));
 
   const libraryActions: LibraryActions = {
-    play: tabs.open,
+    play: (video) => void playFromLibrary(video),
     download: (video) => void downloadMissing(video),
-    playNext: playQueue.playNext,
-    queue: playQueue.enqueue,
+    playNext: (video) => {
+      player.playNext(video);
+      notify.info(`"${video.title}" plays next.`);
+    },
+    queue: (video) => {
+      player.enqueue(video);
+      notify.info(`Added "${video.title}" to the queue.`);
+    },
     reveal: (video) => void attempt(() => api.revealVideo(video.id)),
-    copyLink: (video) =>
-      void attempt(() => copyText(video.url)).then((done) => done !== undefined && notify.info("Link copied.")),
+    copyLink,
     move: (id, folderId) => void library.moveVideos([id], folderId),
     remove: (id, deleteFile) => void removeVideos([id], deleteFile),
     renameFolder: library.renameFolder,
@@ -103,7 +113,11 @@ export default function App() {
     removeVideos,
   };
 
-  const activeVideo = tabs.activeVideo;
+  const openFolder = (folder: string) => {
+    library.updateQuery({ folder });
+    setView("library");
+  };
+
   const activeDownloads = downloads.queue.filter((entry) => isActive(entry.status)).length;
   // Active rows by video, so library cards can show their download live.
   const downloadsByVideo = useMemo(() => {
@@ -112,18 +126,26 @@ export default function App() {
     return map;
   }, [downloads.queue]);
 
+  const classes = ["app"];
+  if (sidebarCollapsed) classes.push("sidebar-collapsed");
+  if (playing && mode === "mini") classes.push("has-mini");
+  if (queueOpen) classes.push("queue-open");
+
   return (
-    <div className="app">
+    <div className={classes.join(" ")}>
       <TopBar
         queue={downloads.queue}
         defaultFormat={settings.settings?.default_format ?? "video"}
         onSubmit={submitUrl}
-        onOpenDownloads={() => navigate("downloads")}
+        onOpenDownloads={() => setView("downloads")}
       />
       <div className="workspace">
         <Sidebar
-          view={activeVideo ? "library" : view}
-          onNavigate={navigate}
+          view={screen}
+          onNavigate={setView}
+          collapsed={sidebarCollapsed}
+          onToggleCollapsed={() => setSidebarCollapsed((value) => !value)}
+          nowPlaying={playing}
           activeDownloads={activeDownloads}
           folders={library.folders}
           selectedFolder={library.query.folder}
@@ -133,55 +155,78 @@ export default function App() {
           onCreateFolder={library.createFolder}
         />
         <main className="content">
-          <TabBar tabs={tabs.tabs} activeId={tabs.activeId} onSelect={tabs.select} onClose={tabs.close} />
-          <div className={"canvas" + (activeVideo ? " has-video" : "")}>
-            {activeVideo ? (
-              <VideoView
-                video={activeVideo}
-                autoPlay={tabs.autoPlay}
-                playSignal={tabs.playSignal}
-                queue={playQueue.items}
-                onEnded={() => void playNextOnEnd(activeVideo)}
-                onPlayQueued={(video) => void playQueuedNow(video)}
-                onRemoveFromQueue={playQueue.remove}
-                onClearQueue={playQueue.clear}
-                onQueueOpened={playQueue.pruneMissing}
-              />
-            ) : (
-              <section className="screen" key={view}>
-                {view === "library" && (
-                  <Library
-                    videos={library.visibleVideos}
-                    folderVideos={library.folderVideos}
-                    libraryTotal={library.videos.length}
-                    folders={library.folders}
-                    downloads={downloadsByVideo}
-                    query={library.query}
-                    onQueryChange={library.updateQuery}
-                    actions={libraryActions}
+          {/* The screens stay mounted under the full player, so the library
+              keeps its scroll position; `inert` keeps them out of reach. */}
+          <div className="canvas" inert={mode === "full" && playing ? true : undefined}>
+            <section className="screen" key={screen === "player" ? "library" : screen}>
+              {(screen === "library" || screen === "player") && (
+                <Library
+                  videos={library.visibleVideos}
+                  folderVideos={library.folderVideos}
+                  libraryTotal={library.videos.length}
+                  folders={library.folders}
+                  downloads={downloadsByVideo}
+                  playingId={playing?.id ?? null}
+                  query={library.query}
+                  onQueryChange={library.updateQuery}
+                  actions={libraryActions}
+                />
+              )}
+              {screen === "downloads" && (
+                <>
+                  <ScreenHead title="Downloads" sub={queueHeadline(downloads.queue)} />
+                  <Downloads queue={downloads.queue} actions={downloads} />
+                </>
+              )}
+              {screen === "settings" && settings.settings && (
+                <>
+                  <ScreenHead title="Settings" sub="Where downloads go, what they look like, and the tools behind them." />
+                  <Settings
+                    settings={settings.settings}
+                    onUpdate={settings.update}
+                    onPickFolder={settings.pickFolder}
+                    onPickCookies={settings.pickCookies}
                   />
-                )}
-                {view === "downloads" && (
-                  <>
-                    <ScreenHead title="Downloads" sub={queueHeadline(downloads.queue)} />
-                    <Downloads queue={downloads.queue} actions={downloads} />
-                  </>
-                )}
-                {view === "settings" && settings.settings && (
-                  <>
-                    <ScreenHead title="Settings" sub="Where downloads go, what they look like, and the tools behind them." />
-                    <Settings
-                      settings={settings.settings}
-                      onUpdate={settings.update}
-                      onPickFolder={settings.pickFolder}
-                      onPickCookies={settings.pickCookies}
-                    />
-                  </>
-                )}
-              </section>
-            )}
+                </>
+              )}
+            </section>
           </div>
+          {playing && (
+            <Player
+              video={playing}
+              mode={mode}
+              startToken={player.startToken}
+              nextVideo={player.nextVideo}
+              canPrevious={player.canPrevious}
+              autoplay={player.autoplay}
+              repeat={player.repeat}
+              queueOpen={queueOpen}
+              onEnded={() => void player.onEnded()}
+              onSaved={library.patchPlayback}
+              onNext={() => void player.goNext()}
+              onPrevious={() =>
+                void player.goPrevious().then((ok) => {
+                  if (!ok && player.canPrevious) notify.error("The previous video's file is gone.");
+                })
+              }
+              onToggleAutoplay={() => player.setAutoplay((value) => !value)}
+              onToggleRepeat={() => player.setRepeat((value) => !value)}
+              onToggleQueue={() => setQueueOpen((value) => !value)}
+              onExpand={() => setView("player")}
+              onMinimize={() => setView("library")}
+              onClose={() => {
+                player.stop();
+                // Closing never leaves the full player waiting to reopen.
+                if (view === "player") setView("library");
+              }}
+              onReveal={() => void attempt(() => api.revealVideo(playing.id))}
+              onCopyLink={() => copyLink(playing)}
+            />
+          )}
         </main>
+        {queueOpen && (
+          <QueuePanel player={player} onClose={() => setQueueOpen(false)} onPlay={(video) => void playFromPanel(video)} />
+        )}
       </div>
       <Toasts />
     </div>

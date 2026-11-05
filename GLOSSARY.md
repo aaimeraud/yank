@@ -44,7 +44,13 @@ The last watched timestamp of a Video, used to offer resume on next play.
 A Video whose playback reached at least 90% completion.
 
 **Play Queue**:
-The in-memory list of Videos to play next, in the player. Not the Download Queue.
+What the player plays next: the user's own queue first, then the rest of the Context. In memory only. Not the Download Queue.
+
+**Context**:
+The list of Videos playback was started from (a folder, as it was shown). Autoplay continues through it and the queue panel lists it as "Next from <folder>".
+
+**Mini player**:
+The player shrunk to the corner while another screen is open. Same video element, so playback continues.
 
 **Cookies File**:
 A Netscape-format cookies.txt imported by the user to enable downloads requiring authentication.

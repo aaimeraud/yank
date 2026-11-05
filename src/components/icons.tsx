@@ -154,3 +154,78 @@ export function SearchIcon({ size = 16 }: IconProps) {
     </svg>
   );
 }
+
+// Player transport and view icons, filled or 1.7px stroke on a 24px grid.
+
+export function PreviousIcon({ size = 18 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <rect x="5" y="5" width="2.4" height="14" rx="1" />
+      <path d="M18.5 5.9v12.2a1 1 0 0 1-1.55.83L8.6 13.2a1.4 1.4 0 0 1 0-2.4l8.35-5.73a1 1 0 0 1 1.55.83Z" />
+    </svg>
+  );
+}
+
+export function NextIcon({ size = 18 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <rect x="16.6" y="5" width="2.4" height="14" rx="1" />
+      <path d="M5.5 5.9v12.2a1 1 0 0 0 1.55.83l8.35-5.73a1.4 1.4 0 0 0 0-2.4L7.05 5.07A1 1 0 0 0 5.5 5.9Z" />
+    </svg>
+  );
+}
+
+export function RepeatIcon({ size = 18 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M17 3.5 20 6.5l-3 3" />
+      <path d="M4 11.5v-1a4 4 0 0 1 4-4h12" />
+      <path d="M7 20.5 4 17.5l3-3" />
+      <path d="M20 12.5v1a4 4 0 0 1-4 4H4" />
+    </svg>
+  );
+}
+
+export function AutoplayIcon({ size = 18 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="2.5" y="7" width="19" height="10" rx="5" />
+      <path d="M10 10v4l3.5-2z" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function ExpandIcon({ size = 18 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7" />
+    </svg>
+  );
+}
+
+export function MinimizeIcon({ size = 18 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="14" rx="2.5" />
+      <rect x="11.5" y="11.5" width="6.5" height="4.5" rx="1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+export function SidebarIcon({ size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="1.75" y="2.75" width="12.5" height="10.5" rx="2" />
+      <path d="M6 3v10" />
+    </svg>
+  );
+}
+
+export function FinderIcon({ size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2 4.25c0-.83.67-1.5 1.5-1.5h3l1.5 1.75h4.5c.83 0 1.5.67 1.5 1.5v5.75c0 .83-.67 1.5-1.5 1.5h-9c-.83 0-1.5-.67-1.5-1.5z" />
+      <path d="m7 9.5 1.5 1.5L11 8.5" />
+    </svg>
+  );
+}

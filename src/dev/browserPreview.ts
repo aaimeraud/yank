@@ -8,6 +8,12 @@ import { emit } from "@tauri-apps/api/event";
 import type { Folder, ProgressEvent, QueueEntry, Settings, ToolchainReport, Video } from "../types";
 
 const NOW = Math.floor(Date.now() / 1000);
+// Real, playable stand-ins for local files: CC0 clips from MDN's examples.
+const CLIPS = [
+  "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+  "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/friday.mp4",
+];
+let clip = 0;
 const thumb = (id: string) => `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
 
 function video(id: string, fields: Partial<Video>): Video {
@@ -19,7 +25,7 @@ function video(id: string, fields: Partial<Video>): Video {
     thumbnail_path: null,
     source: "youtube",
     url: `https://www.youtube.com/watch?v=${id}`,
-    file_path: `/Users/me/Movies/Yank/${id}.mp4`,
+    file_path: CLIPS[clip++ % CLIPS.length],
     file_size: 180_000_000,
     downloaded_at: NOW - 3600,
     last_position: 0,

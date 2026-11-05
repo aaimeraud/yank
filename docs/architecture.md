@@ -75,6 +75,22 @@ commands and one event.
 - Errors from any command surface as a toast (`lib/notify.ts`); nothing
   calls `window.alert`. Confirmations use the native dialog (`lib/confirm.ts`).
 
+## The player
+
+There is one player for the whole window (`components/player/Player.tsx`).
+It stays mounted while something plays; the screen you are on only decides
+its frame: the full player screen, or the mini player in the corner when you
+go back to the library. The stage holding the `<video>` is always its first
+child, so React keeps the same element and playback never restarts.
+
+What plays next follows Spotify's model, in `lib/playerQueue.ts` (pure,
+tested): the history, the current video, "Next in your queue" (Play next /
+Add to queue), then "Next from <folder>", the list playback was started
+from. `hooks/usePlayer.ts` holds that state, checks each file on disk right
+before it starts, and skips files that vanished. `player/usePlayback.ts`
+owns the element: it resumes where you stopped and saves the position every
+5 seconds and when the video changes.
+
 ## Startup (`lib.rs::start_backend`)
 
 1. Open `~/Library/Application Support/com.yank.app/yank.db` and run

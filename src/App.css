@@ -36,6 +36,7 @@
   --radius-control: 999px;
   --radius-menu: 12px;
   --sidebar-width: 224px;
+  --queue-width: 340px;
   --topbar-height: 64px;
   --gap: 14px;
   --pad: 28px;
@@ -679,102 +680,55 @@ button { cursor: pointer; }
 .settings .tool-missing { max-width: 340px; color: var(--pill-negative-ink); white-space: normal; }
 .settings code { color: var(--text); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; } /* taste-skill-ignore: a shell command */
 
-/* ---------------------------------------------------------------- tabs */
-
-.tabbar { flex: 0 0 auto; display: flex; gap: 4px; padding: 10px var(--pad) 0; overflow-x: auto; scrollbar-width: none; }
-.tabbar::-webkit-scrollbar { display: none; }
-.tab {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  max-width: 260px;
-  height: 34px;
-  padding: 0 6px 0 12px;
-  border-radius: var(--radius-control);
-  color: var(--nav);
-  cursor: pointer;
-  transition: background var(--fast) ease, color var(--fast) ease;
-  animation: pop var(--medium) var(--ease-out) both;
-}
-.tab:hover, .tab.active { background: var(--surface); color: var(--text); }
-.tabtitle { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tabclose {
-  flex: 0 0 auto;
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--faint);
-}
-.tabclose:hover { background: var(--raised); color: var(--text); }
-.source-icon { display: block; flex: 0 0 auto; object-fit: contain; }
-.source-generic { flex: 0 0 auto; color: var(--muted); }
-
 /* ---------------------------------------------------------------- player */
 
-.videoview {
-  display: flex;
-  flex-direction: column;
+/* One element, two frames. Full: it covers the canvas (the library stays
+   mounted underneath). Mini: a card in the bottom-right corner. Only the
+   frame changes, so the <video> keeps playing. */
+.content { position: relative; }
+.player { display: flex; flex-direction: column; background: var(--ground); }
+.player.full {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
   gap: 14px;
-  width: 100%;
-  max-width: 1180px;
-  margin: 0 auto;
-  animation: rise var(--medium) var(--ease-out) both;
+  padding: 20px var(--pad) 28px;
+  overflow-y: auto;
+  animation: player-in var(--medium) var(--ease-out) both;
 }
-.canvas.has-video .videoview { flex: 1; min-height: 0; }
-.vv-head { display: flex; flex-direction: column; gap: 6px; }
-.vv-source { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: var(--fs-small); }
-.vv-title { max-width: 900px; margin: 0; font-size: var(--fs-title); font-weight: 650; line-height: 1.25; letter-spacing: -0.02em; }
-.vv-meta { color: var(--faint); font-size: 13px; }
-
-.vv-resume {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px 10px 16px;
-  border-radius: 14px;
-  background: var(--surface);
-  color: var(--muted);
-  animation: rise var(--medium) var(--ease-out) both;
-}
-.vv-resume span { margin-right: auto; }
-.vv-resume button {
-  height: 32px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: var(--radius-control);
+.player.mini {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 60;
+  width: 380px;
+  border-radius: 16px;
   background: var(--raised);
-  color: var(--text);
-  font-size: var(--fs-small);
-  font-weight: 500;
+  overflow: hidden;
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.7);
+  animation: mini-in var(--medium) var(--ease-out) both;
 }
-.vv-resume button:first-of-type { background: #ffffff; color: #000000; }
+.app.queue-open .player.mini { right: calc(var(--queue-width) + 20px); }
 
-.vv-stage {
+.player-stage {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   aspect-ratio: 16 / 9;
-  border-radius: 16px;
   background: #000000;
   overflow: hidden;
 }
-.canvas.has-video .vv-stage { flex: 1 1 auto; min-height: 0; aspect-ratio: auto; background: #050505; }
-.vv-stage video { width: 100%; height: 100%; display: block; object-fit: contain; background: #000000; cursor: pointer; }
+.player.full .player-stage { flex: 0 1 auto; max-height: calc(100vh - var(--topbar-height) - 230px); min-height: 220px; border-radius: 16px; }
+.player-stage video { width: 100%; height: 100%; display: block; object-fit: contain; background: #000000; cursor: pointer; }
+.player.mini .player-stage video { cursor: zoom-in; }
+
 .vv-bigplay {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 68px;
-  height: 68px;
+  width: 72px;
+  height: 72px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -784,6 +738,7 @@ button { cursor: pointer; }
   color: #000000;
   transform: translate(-50%, -50%);
   transition: transform var(--fast) var(--ease-out);
+  animation: pop var(--medium) var(--ease-out) both;
 }
 .vv-bigplay:hover { transform: translate(-50%, -50%) scale(1.06); }
 .vv-flash {
@@ -792,46 +747,70 @@ button { cursor: pointer; }
   left: 50%;
   padding: 8px 16px;
   border-radius: var(--radius-control);
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.72);
   color: #ffffff;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   pointer-events: none;
   transform: translate(-50%, -50%);
+  animation: pop var(--fast) var(--ease-out) both;
 }
+.vv-resumed {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 6px 6px 14px;
+  border-radius: var(--radius-control);
+  background: rgba(0, 0, 0, 0.78);
+  color: var(--text);
+  font-size: 13px;
+  animation: rise var(--medium) var(--ease-out) both;
+}
+.vv-resumed button {
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: #ffffff;
+  color: #000000;
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+.vv-resumed button.quiet { background: transparent; color: var(--muted); }
 
-.vv-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 8px 10px; border-radius: 16px; background: var(--surface); }
-.vv-controls button {
+/* Control bar: the timeline on top, two groups of buttons under it. */
+.vv-controls { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px 8px; border-radius: 16px; background: var(--surface); }
+.vv-control-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.vv-group { display: flex; align-items: center; gap: 2px; }
+.vv-controls button, .mini-controls button {
   flex: 0 0 auto;
   width: 36px;
   height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
   border: 0;
   border-radius: 50%;
   background: transparent;
-  color: var(--text);
-  transition: background var(--fast) ease, transform var(--fast) var(--ease-out);
+  color: var(--muted);
+  transition: background var(--fast) ease, color var(--fast) ease, transform var(--fast) var(--ease-out);
 }
-.vv-controls button:hover { background: var(--raised); }
-.vv-controls button:active { transform: scale(0.92); }
-.vv-controls .vv-primary { width: 42px; height: 42px; background: #ffffff; color: #000000; }
-.vv-controls .vv-primary:hover { background: #ffffff; transform: scale(1.04); }
-.vv-time { min-width: 44px; color: var(--muted); font-size: var(--fs-small); text-align: center; }
+.vv-controls button:hover, .mini-controls button:hover { background: var(--raised); color: var(--text); }
+.vv-controls button:active, .mini-controls button:active { transform: scale(0.92); }
+.vv-controls button:disabled, .mini-controls button:disabled { opacity: 0.35; cursor: default; background: transparent; }
+.vv-controls .vv-primary, .mini-controls .vv-primary { width: 42px; height: 42px; margin: 0 2px; background: #ffffff; color: #000000; }
+.vv-controls .vv-primary:hover, .mini-controls .vv-primary:hover { background: #ffffff; color: #000000; transform: scale(1.05); }
+.vv-toggle.on { color: var(--text); background: var(--raised); }
+.vv-time { margin-left: 8px; color: var(--text); font-size: 13px; white-space: nowrap; }
+.vv-time span { color: var(--faint); }
 
-/* A range input over a drawn track: the played part is data, so its fill
-   takes the hue (white for volume). The input itself only draws the thumb. */
-.vv-range { position: relative; display: flex; align-items: center; width: 80px; height: 20px; }
-.vv-range::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--raised);
-}
+/* Ranges: a range input over a drawn track. The played part is data. */
+.vv-range { position: relative; display: flex; align-items: center; width: 84px; height: 20px; }
+.vv-range::before { content: ""; position: absolute; left: 0; right: 0; height: 4px; border-radius: 2px; background: var(--raised); }
 .vv-range-fill {
   position: absolute;
   left: 0;
@@ -842,98 +821,283 @@ button { cursor: pointer; }
   transform-origin: left center;
   pointer-events: none;
 }
-.vv-seek .vv-range-fill { background: var(--accent); }
-.vv-seek { flex: 1 1 160px; min-width: 120px; width: auto; }
-.vv-range input {
-  -webkit-appearance: none;
-  appearance: none;
-  position: relative;
-  width: 100%;
-  height: 20px;
-  margin: 0;
-  background: transparent;
-  outline-offset: 4px;
-  cursor: pointer;
-}
+.vv-range.accent .vv-range-fill { background: var(--accent); }
+.vv-seek { width: 100%; height: 22px; }
+.vv-seek:hover::before, .vv-seek:hover .vv-range-fill { height: 6px; }
+.vv-range input { -webkit-appearance: none; appearance: none; position: relative; width: 100%; height: 20px; margin: 0; background: transparent; outline-offset: 4px; cursor: pointer; }
 .vv-range input::-webkit-slider-runnable-track { height: 4px; background: transparent; }
 .vv-range input::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 12px;
-  height: 12px;
-  margin-top: -4px;
+  width: 13px;
+  height: 13px;
+  margin-top: -4.5px;
   border: 0;
   border-radius: 50%;
   background: #ffffff;
+  transform: scale(0.8);
   transition: transform var(--fast) var(--ease-out);
 }
-.vv-range:hover input::-webkit-slider-thumb { transform: scale(1.3); }
-.vv-volume { display: flex; align-items: center; gap: 2px; }
-.vv-controls .vv-speed { width: auto; padding: 0 12px; border-radius: var(--radius-control); font-size: var(--fs-small); }
-.vv-controls .vv-queue-btn { position: relative; width: auto; gap: 6px; padding: 0 10px; border-radius: var(--radius-control); }
-.vv-controls .vv-queue-btn.open { background: var(--raised); }
-.vv-queue-badge {
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9px;
+.vv-range:hover input::-webkit-slider-thumb { transform: scale(1.15); }
+.vv-range-tip {
+  position: absolute;
+  bottom: 22px;
+  padding: 3px 7px;
+  border-radius: 6px;
   background: var(--raised);
   color: var(--text);
-  font-size: 11px;
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+.vv-volume { display: flex; align-items: center; gap: 2px; margin-right: 4px; }
+
+.vv-menu-wrap { position: relative; }
+.vv-controls .vv-speed { width: auto; min-width: 44px; padding: 0 10px; border-radius: var(--radius-control); font-size: 13px; font-weight: 600; }
+.vv-controls .vv-speed.changed { color: var(--text); background: var(--raised); }
+.vv-menu {
+  position: absolute;
+  right: 0;
+  bottom: 44px;
+  z-index: 20;
+  min-width: 132px;
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+  border-radius: var(--radius-menu);
+  background: var(--raised);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6);
+  transform-origin: bottom right;
+  animation: pop var(--fast) var(--ease-out) both;
+}
+.vv-controls .vv-menu button { width: auto; height: 32px; justify-content: flex-start; padding: 0 12px; border-radius: 8px; color: var(--text); font-size: 13px; }
+.vv-controls .vv-menu button:hover { background: #3a3a3a; }
+.vv-controls .vv-menu button.current { font-weight: 650; }
+.vv-controls .vv-menu button.current::after { content: ""; width: 6px; height: 6px; margin-left: auto; border-radius: 50%; background: var(--text); }
+
+/* Under the controls: the title block and the "Up next" card side by side. */
+.vv-info { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+.vv-head { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.vv-source { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: var(--fs-small); }
+.vv-title { max-width: 860px; margin: 0; font-size: var(--fs-title); font-weight: 650; line-height: 1.25; letter-spacing: -0.02em; }
+.vv-meta { margin: 0; color: var(--faint); font-size: 13px; }
+.vv-actions { display: flex; gap: 6px; margin-top: 6px; }
+.vv-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-small);
+  font-weight: 500;
+  transition: background var(--fast) ease;
+}
+.vv-actions button:hover { background: var(--raised); }
+.vv-upnext {
+  flex: 0 0 300px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  transition: background var(--fast) ease;
+}
+.vv-upnext:hover { background: var(--surface-hover); }
+.vv-upnext-thumb {
+  flex: 0 0 auto;
+  width: 96px;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--raised);
+  overflow: hidden;
+}
+.vv-upnext-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.vv-upnext-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.vv-upnext-label { color: var(--faint); font-size: var(--fs-small); }
+.vv-upnext-title { font-size: 13px; font-weight: 550; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Fullscreen: the picture fills the screen; controls float at the bottom
+   and fade out after 2.5s without the pointer moving. */
+.player.is-fullscreen { padding: 0; }
+.player.is-fullscreen .player-stage { max-height: none; height: 100%; border-radius: 0; }
+.player.is-fullscreen .vv-controls {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: 24px;
+  background: rgba(17, 17, 17, 0.92);
+  transition: opacity var(--medium) ease, transform var(--medium) var(--ease-out);
+}
+.player.is-fullscreen.idle .vv-controls { opacity: 0; transform: translateY(12px); pointer-events: none; }
+.player.is-fullscreen.idle video { cursor: none; }
+
+/* Mini player chrome. */
+.mini-bar { position: relative; display: flex; align-items: center; gap: 8px; padding: 10px 8px 10px 14px; }
+.mini-progress { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: rgba(255, 255, 255, 0.12); }
+.mini-progress > span { display: block; height: 100%; background: var(--accent); transform-origin: left center; transition: transform 300ms linear; }
+.mini-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font-size: 13px;
+  font-weight: 550;
+}
+.mini-title > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini-title .mini-sub { color: var(--faint); font-size: 11.5px; font-weight: 400; }
+.mini-controls { display: flex; align-items: center; gap: 0; }
+.mini-controls button { width: 30px; height: 30px; }
+.mini-controls .vv-primary { width: 34px; height: 34px; }
+
+/* Room so the mini player never hides the last row or a toast. */
+.app.has-mini .canvas { padding-bottom: 300px; }
+.app.has-mini .toasts { bottom: 290px; }
+.app.queue-open .toasts { right: calc(var(--queue-width) + 24px); }
+
+/* The playing marker: three bars, on the card, in the sidebar, in the queue. */
+.eq { display: inline-flex; align-items: flex-end; gap: 2px; width: 14px; height: 12px; }
+.eq i { flex: 1; height: 100%; border-radius: 1px; background: var(--accent); transform-origin: bottom; animation: eq 1s ease-in-out infinite; }
+.eq i:nth-child(2) { animation-delay: -0.35s; }
+.eq i:nth-child(3) { animation-delay: -0.7s; }
+.card.playing .thumb { outline: 2px solid var(--accent); outline-offset: 2px; }
+.card-playing {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--radius-control);
+  background: rgba(0, 0, 0, 0.8);
+  color: var(--text);
+  font-size: var(--fs-small);
   font-weight: 600;
 }
 
-.vv-queue {
+/* ---------------------------------------------------------------- queue panel */
+
+.queue-panel {
+  flex: 0 0 var(--queue-width);
+  width: var(--queue-width);
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-height: 240px;
-  padding: 12px 14px;
-  border-radius: 16px;
-  background: var(--surface);
-  animation: rise var(--medium) var(--ease-out) both;
+  min-height: 0;
+  border-left: 1px solid var(--rule);
+  animation: panel-in var(--medium) var(--ease-out) both;
 }
-.vv-queue-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.vv-queue-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
-.vv-queue-count { color: var(--faint); font-weight: 500; }
-.vv-queue-clear { height: 28px; padding: 0 10px; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--muted); font-size: var(--fs-small); }
-.vv-queue-clear:hover { background: var(--raised); color: var(--text); }
-.vv-queue-empty { margin: 0; color: var(--faint); font-size: 13px; line-height: 1.5; }
-.vv-queue-list { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; overflow-y: auto; }
-.vv-queue-list li { display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 0 6px; border-radius: 8px; transition: background var(--fast) ease; }
-.vv-queue-list li:hover { background: var(--raised); }
-.vv-queue-index { width: 18px; flex: 0 0 auto; color: var(--faint); font-size: var(--fs-small); text-align: right; }
-.vv-queue-item {
-  flex: 1;
-  min-width: 0;
-  padding: 6px 0;
-  border: 0;
-  background: transparent;
-  color: var(--text);
-  font-size: 13px;
-  text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.vv-queue-duration { flex: 0 0 auto; color: var(--faint); font-size: var(--fs-small); }
-.vv-queue-remove {
-  width: 24px;
-  height: 24px;
-  flex: 0 0 auto;
+.queue-panel-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 16px 10px 20px; }
+.queue-panel-head h2 { margin: 0; font-size: var(--fs-section); font-weight: 650; }
+.queue-panel-body { flex: 1; overflow-y: auto; padding: 0 12px 28px; }
+.icon-button {
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
   border: 0;
   border-radius: 50%;
   background: transparent;
-  color: var(--faint);
+  color: var(--muted);
+  font-size: 16px;
+  transition: background var(--fast) ease, color var(--fast) ease;
 }
-.vv-queue-remove:hover { background: #3a3a3a; color: var(--text); }
-.vv-hints { display: flex; flex-wrap: wrap; gap: 18px; color: var(--faint); font-size: var(--fs-small); }
-.vv-hints kbd { padding: 1px 6px; border-radius: 5px; background: var(--surface); color: var(--muted); font: inherit; font-size: 11.5px; }
+.icon-button:hover { background: var(--raised); color: var(--text); }
+.queue-section { margin-top: 14px; }
+.queue-section-head { display: flex; align-items: center; justify-content: space-between; padding: 0 8px 6px; }
+.queue-section-head h3 { margin: 0; font-size: 13px; font-weight: 600; color: var(--text); }
+.queue-section-head .link-button { padding: 0; }
+.queue-empty { margin: 0; padding: 4px 8px; color: var(--faint); font-size: 13px; line-height: 1.5; }
+.queue-list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.queue-item { position: relative; display: flex; align-items: center; border-radius: 10px; transition: background var(--fast) ease; }
+.queue-item:hover { background: var(--surface); }
+.queue-item.drop { box-shadow: inset 0 2px 0 var(--text); }
+.queue-item[draggable="true"] { cursor: grab; }
+.queue-item.faded .queue-title { color: var(--muted); }
+.queue-item-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+.queue-item-main:disabled { cursor: default; }
+.queue-thumb {
+  position: relative;
+  flex: 0 0 auto;
+  width: 64px;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.queue-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.queue-thumb .eq { position: absolute; padding: 3px; border-radius: 4px; background: rgba(0, 0, 0, 0.7); width: 20px; height: 16px; }
+.queue-item.playing .queue-title { color: var(--accent); }
+.queue-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.queue-title { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.queue-sub { color: var(--faint); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-action { opacity: 0; margin-right: 4px; }
+.queue-item:hover .row-action, .row-action:focus-visible { opacity: 1; }
+
+/* ---------------------------------------------------------------- collapsed sidebar */
+
+.sidebar { transition: width var(--medium) var(--ease-out); }
+.sidebar-toggle { margin-top: auto; color: var(--faint); }
+.nav-initial {
+  width: 16px;
+  flex: 0 0 auto;
+  color: var(--faint);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  text-align: center;
+}
+.nav-row .eq { width: 16px; }
+.sidebar.collapsed { width: 64px; padding-left: 10px; padding-right: 10px; }
+.sidebar.collapsed .nav-label,
+.sidebar.collapsed .nav-meta,
+.sidebar.collapsed .nav-heading { display: none; }
+.sidebar.collapsed .nav-row { justify-content: center; padding: 0; width: 44px; }
+.sidebar.collapsed .nav-count {
+  position: absolute;
+  min-width: 16px;
+  height: 16px;
+  margin: -16px -18px 0 0;
+  padding: 0 4px;
+  font-size: 10px;
+}
+.sidebar.collapsed .nav-row { position: relative; }
+.sidebar.collapsed .sidebar-toggle svg { transform: scaleX(-1); }
 
 /* ---------------------------------------------------------------- toasts */
 
@@ -973,6 +1137,10 @@ button { cursor: pointer; }
 @keyframes pop { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: none; } }
 @keyframes toast-in { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
 @keyframes breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+@keyframes player-in { from { opacity: 0; transform: scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes mini-in { from { opacity: 0; transform: translateY(16px) scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes panel-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+@keyframes eq { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
 /* A live bar pulses gently, so a slow download still reads as alive. */
 @keyframes shimmer { 0%, 100% { opacity: 1; } 50% { opacity: 0.62; } }
 
@@ -986,6 +1154,26 @@ button { cursor: pointer; }
 }
 
 /* ---------------------------------------------------------------- narrow */
+
+@media (max-width: 1100px) {
+  /* Too narrow for three columns: the queue floats over the content. */
+  .queue-panel {
+    position: fixed;
+    top: var(--topbar-height);
+    right: 0;
+    bottom: 0;
+    z-index: 70;
+    background: var(--ground);
+    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.6);
+  }
+  .vv-info { flex-direction: column; }
+  .vv-upnext { flex-basis: auto; width: 100%; max-width: 420px; }
+}
+
+@media (max-width: 800px) {
+  /* No room beside the floating queue: the mini player keeps its corner. */
+  .app.queue-open .player.mini { right: 20px; }
+}
 
 @media (max-width: 900px) {
   :root { --sidebar-width: 200px; --pad: 20px; }
@@ -1021,5 +1209,10 @@ button { cursor: pointer; }
   .queue-line { flex-wrap: wrap; }
   .meter { order: 3; flex: 1 1 100%; }
   .qactions, .qstatus { flex-basis: auto; }
+  .player.mini, .app.queue-open .player.mini { left: 12px; right: 12px; bottom: 12px; width: auto; }
+  :root { --queue-width: 100vw; }
+  .sidebar.collapsed { width: 100%; }
+  .sidebar-toggle { display: none; }
+  .vv-control-row .vv-group:last-child { flex-wrap: wrap; }
   .qstatus { padding: 0 10px; }
 }

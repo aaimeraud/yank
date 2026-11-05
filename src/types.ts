@@ -1,7 +1,8 @@
 // Mirrors of the Rust types in src-tauri/src/models.rs and settings.rs.
 // Change both sides together.
 
-export type View = "library" | "downloads" | "settings";
+/** The screen in the main area. "player" is the full-size player. */
+export type View = "library" | "downloads" | "settings" | "player";
 
 /** What yt-dlp is asked for. See ADR 0002. */
 export type Format = "video" | "audio" | "original";

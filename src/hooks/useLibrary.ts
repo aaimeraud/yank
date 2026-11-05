@@ -63,8 +63,20 @@ export function useLibrary() {
     [refresh],
   );
 
+  /** Apply a saved playback position locally, without reloading the library. */
+  const patchPlayback = useCallback((id: string, position: number, watched: boolean) => {
+    setVideos((current) =>
+      current.map((video) =>
+        video.id === id && (video.last_position !== position || video.watched !== watched)
+          ? { ...video, last_position: position, watched }
+          : video,
+      ),
+    );
+  }, []);
+
   return {
     videos,
+    patchPlayback,
     folders,
     query,
     updateQuery,

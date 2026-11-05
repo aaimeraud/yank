@@ -24,6 +24,8 @@ interface Props {
   index: number;
   /** The video's active download, if any: drawn live on the thumbnail. */
   download: QueueEntry | null;
+  /** This video is in the player right now. */
+  playing: boolean;
   folders: Folder[];
   /** Bulk selection mode: a click toggles instead of playing. */
   selecting: boolean;
@@ -32,7 +34,7 @@ interface Props {
   actions: CardActions;
 }
 
-export default function VideoCard({ video, index, download, folders, selecting, selected, onToggleSelect, actions }: Props) {
+export default function VideoCard({ video, index, download, playing, folders, selecting, selected, onToggleSelect, actions }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const label = displayTitle(video);
   const downloaded = video.file_path !== null;
@@ -49,7 +51,7 @@ export default function VideoCard({ video, index, download, folders, selecting, 
 
   return (
     <div
-      className={"card" + (selected ? " selected" : "") + (downloaded ? "" : download ? " incoming" : " missing")}
+      className={"card" + (selected ? " selected" : "") + (playing ? " playing" : "") + (downloaded ? "" : download ? " incoming" : " missing")}
       style={{ "--enter-delay": `${Math.min(index, 11) * 45}ms` } as React.CSSProperties}
       role={selecting ? "checkbox" : "button"}
       aria-checked={selecting ? selected : undefined}
@@ -69,6 +71,12 @@ export default function VideoCard({ video, index, download, folders, selecting, 
       }}
     >
       <Thumbnail video={video} download={download} />
+      {playing && (
+        <span className="card-playing">
+          <span className="eq" aria-hidden="true"><i /><i /><i /></span>
+          Playing
+        </span>
+      )}
 
       {selecting && (
         <span className={"card-check" + (selected ? " checked" : "")} aria-hidden="true">

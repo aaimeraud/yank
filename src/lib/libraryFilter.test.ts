@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { Video } from "../types";
 import { makeVideo } from "../test/fixtures";
-import { ALL, UNFILED, filterVideos } from "./libraryFilter";
+import { ALL, UNFILED, filterVideos, folderTitle } from "./libraryFilter";
 
 const video = (id: string, folderId: string | null): Video =>
   makeVideo(id, { file_path: null, folder_id: folderId });
@@ -86,5 +86,17 @@ describe("playlist order", () => {
       playlistVideo("one", 1, "p1"),
     ];
     expect(filterVideos(list, ALL).map((v) => v.id)).toEqual(["five", "solo", "one"]);
+  });
+});
+
+describe("folderTitle", () => {
+  const folders = [{ id: "f1", name: "Talks", created_at: 0, video_count: 0 }];
+  test("names the sentinels and real folders", () => {
+    expect(folderTitle(ALL, folders)).toBe("All videos");
+    expect(folderTitle(UNFILED, folders)).toBe("Unfiled");
+    expect(folderTitle("f1", folders)).toBe("Talks");
+  });
+  test("a vanished folder reads as the whole library", () => {
+    expect(folderTitle("gone", folders)).toBe("All videos");
   });
 });

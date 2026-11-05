@@ -2,7 +2,7 @@
  * Yank's mark: a stream pulled down into a tray, the one thing the app does.
  * Drawn in the data hue, the only place that hue appears in the chrome.
  */
-export function Mark({ size = 22 }: { size?: number }) {
+function Mark({ size = 22 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" className="mark">
       <rect width="24" height="24" rx="7" fill="var(--accent)" />

@@ -1,5 +1,5 @@
 /** A video counts as watched once 90% of it has played. */
-export const WATCHED_RATIO = 0.9;
+const WATCHED_RATIO = 0.9;
 
 /**
  * What to persist for a video. The duration has to be the one captured while

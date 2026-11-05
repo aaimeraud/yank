@@ -4,10 +4,14 @@ import { applyProgress, replayEvents } from "../lib/queueGroups";
 import { succeeds } from "../lib/notify";
 import type { ProgressEvent, QueueEntry } from "../types";
 
+/** A playlist finishes many videos in a row; the library reloads once per burst. */
+const FINISHED_DEBOUNCE_MS = 500;
+
 /**
  * The download queue. Loaded from the backend, then kept live by progress
  * events; any action refreshes the list from the database afterwards.
- * `onFinished` runs when a download completes, so the library can reload.
+ * `onFinished` runs after downloads complete (once per burst), so the
+ * library can reload.
  */
 export function useDownloads(onFinished?: () => void) {
   const [queue, setQueue] = useState<QueueEntry[]>([]);
@@ -20,8 +24,12 @@ export function useDownloads(onFinished?: () => void) {
   // of its result (see replayEvents).
   const inFlight = useRef(0);
   const pending = useRef<ProgressEvent[]>([]);
+  // An event for an unknown row arrived during a reload: reload once more
+  // after it, instead of once per event.
+  const stale = useRef(false);
+  const finishTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<void> => {
     inFlight.current += 1;
     const start = pending.current.length;
     try {
@@ -33,6 +41,10 @@ export function useDownloads(onFinished?: () => void) {
       inFlight.current -= 1;
       if (inFlight.current === 0) pending.current = [];
     }
+    if (inFlight.current === 0 && stale.current) {
+      stale.current = false;
+      await refresh();
+    }
   }, []);
 
   useEffect(() => {
@@ -41,11 +53,20 @@ export function useDownloads(onFinished?: () => void) {
       if (inFlight.current > 0) pending.current.push(event);
       setQueue((rows) => applyProgress(rows, event));
       // A row this list has not loaded yet (queued from elsewhere): reload.
-      if (!queueRef.current.some((row) => row.id === event.queue_id)) void refresh();
-      if (event.status === "done") finishedRef.current?.();
+      if (!queueRef.current.some((row) => row.id === event.queue_id)) {
+        if (inFlight.current > 0) stale.current = true;
+        else void refresh();
+      }
+      if (event.status === "done" && !finishTimer.current) {
+        finishTimer.current = setTimeout(() => {
+          finishTimer.current = null;
+          finishedRef.current?.();
+        }, FINISHED_DEBOUNCE_MS);
+      }
     });
     return () => {
       void unlisten.then((stop) => stop());
+      if (finishTimer.current) clearTimeout(finishTimer.current);
     };
   }, [refresh]);
 

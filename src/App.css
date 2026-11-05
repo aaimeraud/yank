@@ -214,7 +214,6 @@ button { cursor: pointer; }
 .nav-row.active { color: var(--text); font-weight: 550; }
 .nav-row.active svg { color: var(--text); }
 .nav-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.nav-spacer { width: 16px; flex: 0 0 auto; }
 .nav-meta { color: var(--faint); font-size: var(--fs-small); }
 .nav-count {
   min-width: 20px;
@@ -245,7 +244,6 @@ button { cursor: pointer; }
 
 .content { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .canvas { flex: 1; overflow-y: auto; padding: 26px var(--pad) 40px; overscroll-behavior: contain; }
-.canvas.has-video { display: flex; overflow: hidden; padding-top: 18px; }
 .screen { animation: rise var(--medium) var(--ease-out) both; }
 
 .screen-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 20px; }

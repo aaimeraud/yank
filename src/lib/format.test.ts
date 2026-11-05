@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { formatBytes, formatClock, formatDuration, formatEta, formatLongDuration, formatSpeed, plural } from "./format";
+import { formatClock, formatDuration, formatEta, formatLongDuration, formatSpeed, formatTransfer, plural } from "./format";
 
 describe("formatClock", () => {
   test("minutes and hours", () => {
@@ -38,13 +38,10 @@ describe("yt-dlp progress values", () => {
   });
 });
 
-describe("formatBytes", () => {
-  test("picks a unit", () => {
-    expect(formatBytes(512)).toBe("512 B");
-    expect(formatBytes(1_536_000)).toBe("1.5 MB");
-    expect(formatBytes(2_100_000_000)).toBe("2.1 GB");
-    expect(formatBytes(null)).toBe("");
-  });
+test("formatTransfer joins what is known", () => {
+  expect(formatTransfer("2400000", "200")).toBe("2.4 MB/s · 3m 20s left");
+  expect(formatTransfer(null, "5")).toBe("5s left");
+  expect(formatTransfer("NA", null)).toBe("");
 });
 
 test("plural", () => {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api";
-import { ALL, UNFILED, filterVideos } from "../lib/libraryFilter";
-import { DEFAULT_QUERY, viewVideos, type LibraryQuery } from "../lib/libraryView";
+import { ALL, UNFILED, filterVideos, folderTitle } from "../lib/libraryFilter";
+import { DEFAULT_QUERY, refineVideos, type LibraryQuery } from "../lib/libraryView";
 import { attempt, succeeds } from "../lib/notify";
 import type { Folder, Video } from "../types";
 
@@ -36,8 +36,9 @@ export function useLibrary() {
     }
   }, [folders, query]);
 
-  const visibleVideos = useMemo(() => viewVideos(videos, query), [videos, query]);
   const folderVideos = useMemo(() => filterVideos(videos, query.folder), [videos, query.folder]);
+  const visibleVideos = useMemo(() => refineVideos(folderVideos, query), [folderVideos, query]);
+  const title = useMemo(() => folderTitle(query.folder, folders), [query.folder, folders]);
   const unfiledCount = useMemo(() => videos.filter((video) => !video.folder_id).length, [videos]);
 
   const updateQuery = useCallback((patch: Partial<LibraryQuery>) => {
@@ -80,6 +81,8 @@ export function useLibrary() {
     folders,
     query,
     updateQuery,
+    /** Heading of the selected folder; also the "Next from …" label. */
+    title,
     visibleVideos,
     folderVideos,
     unfiledCount,

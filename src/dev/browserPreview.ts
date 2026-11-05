@@ -5,6 +5,8 @@
 
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { emit } from "@tauri-apps/api/event";
+import { PROGRESS_EVENT } from "../api";
+import { makeVideo } from "../test/fixtures";
 import type { Folder, ProgressEvent, QueueEntry, Settings, ToolchainReport, Video } from "../types";
 
 const NOW = Math.floor(Date.now() / 1000);
@@ -17,24 +19,13 @@ let clip = 0;
 const thumb = (id: string) => `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
 
 function video(id: string, fields: Partial<Video>): Video {
-  return {
-    id,
+  return makeVideo(id, {
     title: id,
-    uploader: null,
-    duration: null,
-    thumbnail_path: null,
-    source: "youtube",
-    url: `https://www.youtube.com/watch?v=${id}`,
     file_path: CLIPS[clip++ % CLIPS.length],
     file_size: 180_000_000,
     downloaded_at: NOW - 3600,
-    last_position: 0,
-    watched: false,
-    playlist_id: null,
-    folder_id: null,
-    playlist_index: null,
     ...fields,
-  };
+  });
 }
 
 const PLAYLIST = "pl-systems";
@@ -141,7 +132,7 @@ export function install() {
         speed: row.speed,
         eta: row.eta,
       };
-      void emit("download-progress", event);
+      void emit(PROGRESS_EVENT, event);
     }
   }, 500);
 }

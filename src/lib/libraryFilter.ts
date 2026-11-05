@@ -1,4 +1,4 @@
-import type { Video } from "../types";
+import type { Folder, Video } from "../types";
 
 export const ALL = "all";
 export const UNFILED = "unfiled";
@@ -10,32 +10,34 @@ export const UNFILED = "unfiled";
  * video into that folder, the standalone keeps its place instead of dragging
  * the whole folder back to download-completion order.
  */
-export function orderPlaylistVideos(videos: Video[]): Video[] {
+function orderPlaylistVideos(videos: Video[]): Video[] {
   if (videos.length < 2) return videos;
-  const groups = new Map<string, Video[]>();
+  // Grid positions held by each playlist's entries.
   const slots = new Map<string, number[]>();
   videos.forEach((video, index) => {
     if (!video.playlist_id || video.playlist_index == null) return;
-    const key = video.playlist_id;
-    const members = groups.get(key);
-    if (members) members.push(video);
-    else groups.set(key, [video]);
-    const positions = slots.get(key);
+    const positions = slots.get(video.playlist_id);
     if (positions) positions.push(index);
-    else slots.set(key, [index]);
+    else slots.set(video.playlist_id, [index]);
   });
-  if (groups.size === 0) return videos;
+  if (slots.size === 0) return videos;
 
   const next = [...videos];
-  for (const [key, members] of groups) {
-    const sorted = [...members].sort(
-      (a, b) => (a.playlist_index ?? Infinity) - (b.playlist_index ?? Infinity),
-    );
-    slots.get(key)!.forEach((slot, i) => {
+  for (const positions of slots.values()) {
+    const sorted = positions
+      .map((slot) => videos[slot])
+      .sort((a, b) => (a.playlist_index ?? Infinity) - (b.playlist_index ?? Infinity));
+    positions.forEach((slot, i) => {
       next[slot] = sorted[i];
     });
   }
   return next;
+}
+
+/** The heading for a folder selection. A vanished id reads as the whole library. */
+export function folderTitle(selected: string, folders: Folder[]): string {
+  if (selected === UNFILED) return "Unfiled";
+  return folders.find((folder) => folder.id === selected)?.name ?? "All videos";
 }
 
 /**

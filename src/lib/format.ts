@@ -32,17 +32,9 @@ export function formatEta(raw: string | null | undefined): string {
   return m > 0 ? `${m}m ${s}s left` : `${s}s left`;
 }
 
-/** 1536000 -> "1.5 MB". Empty when unknown. */
-export function formatBytes(bytes: number | null | undefined): string {
-  if (!bytes || bytes <= 0) return "";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let value = bytes;
-  let unit = 0;
-  while (value >= 1000 && unit < units.length - 1) {
-    value /= 1000;
-    unit += 1;
-  }
-  return `${unit === 0 ? value : value.toFixed(1)} ${units[unit]}`;
+/** "2.4 MB/s · 3m 20s left", either half alone, or empty when both are unknown. */
+export function formatTransfer(speed: string | null | undefined, eta: string | null | undefined): string {
+  return [formatSpeed(speed), formatEta(eta)].filter(Boolean).join(" · ");
 }
 
 /** "1 video", "3 videos". */

@@ -61,7 +61,10 @@ export const api = {
   openLogsFolder: () => invoke<void>("open_logs_folder"),
 };
 
+/** Name of the progress event; `PROGRESS_EVENT` in src-tauri/src/lib.rs. */
+export const PROGRESS_EVENT = "download-progress";
+
 /** Subscribe to download progress. Returns the unsubscribe function. */
 export function onProgress(handler: (event: ProgressEvent) => void): Promise<UnlistenFn> {
-  return listen<ProgressEvent>("download-progress", (event) => handler(event.payload));
+  return listen<ProgressEvent>(PROGRESS_EVENT, (event) => handler(event.payload));
 }

@@ -116,7 +116,7 @@ export function errorHeadline(error: string | null | undefined): string {
   return (errorLine ?? lines[lines.length - 1] ?? "").replace(/^ERROR:\s*/, "");
 }
 
-export interface IntakeSummary {
+interface IntakeSummary {
   /** Rows downloading or waiting for a slot. */
   active: number;
   /** Average progress of the active rows, 0 to 100. */

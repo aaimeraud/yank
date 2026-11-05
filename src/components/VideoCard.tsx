@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import type { Folder, QueueEntry, Video } from "../types";
 import { displayTitle } from "../lib/display";
-import { formatDuration, formatEta, formatSpeed } from "../lib/format";
+import { formatDuration, formatTransfer } from "../lib/format";
 import { confirmAction } from "../lib/confirm";
+import { useDismiss } from "../hooks/useDismiss";
 import SourceIcon from "./SourceIcon";
 
 /** What a card can ask the library to do with its video. */
@@ -144,7 +145,7 @@ function Thumbnail({ video, download }: { video: Video; download: QueueEntry | n
           <span className="thumb-download-text">
             {download.status === "queued"
               ? "Waiting for a slot"
-              : `${Math.round(download.progress)}%  ${[formatSpeed(download.speed), formatEta(download.eta)].filter(Boolean).join(" · ")}`}
+              : `${Math.round(download.progress)}%  ${formatTransfer(download.speed, download.eta)}`}
           </span>
           <span className="thumb-download-bar">
             <span style={{ transform: `scaleX(${download.progress / 100})` }} />
@@ -173,22 +174,7 @@ function CardMenu({ video, folders, open, onOpenChange, actions }: MenuProps) {
   const downloaded = video.file_path !== null;
   const destinations = folders.filter((folder) => folder.id !== video.folder_id);
 
-  // Close on any click outside the menu, and on Escape.
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: PointerEvent) => {
-      if (!ref.current?.contains(event.target as Node)) onOpenChange(false);
-    };
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onOpenChange(false);
-    };
-    document.addEventListener("pointerdown", close);
-    document.addEventListener("keydown", escape);
-    return () => {
-      document.removeEventListener("pointerdown", close);
-      document.removeEventListener("keydown", escape);
-    };
-  }, [open, onOpenChange]);
+  useDismiss(ref, open, () => onOpenChange(false));
 
   /** Close the menu, then run the action. */
   const pick = (action: () => void) => () => {

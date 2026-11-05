@@ -1,10 +1,9 @@
 import { useState } from "react";
-import { convertFileSrc } from "@tauri-apps/api/core";
 import type { Video } from "../types";
 import type { Player } from "../hooks/usePlayer";
 import { displayTitle } from "../lib/display";
 import { formatDuration } from "../lib/format";
-import SourceIcon from "./SourceIcon";
+import ThumbImage from "./ThumbImage";
 import { CloseIcon } from "./icons";
 
 interface Props {
@@ -183,11 +182,7 @@ function Row(props: RowProps) {
         }}
       >
         <span className="queue-thumb">
-          {video.thumbnail_path ? (
-            <img src={convertFileSrc(video.thumbnail_path)} alt="" loading="lazy" />
-          ) : (
-            <SourceIcon source={video.source} size={16} />
-          )}
+          <ThumbImage video={video} size={16} />
           {props.playing && <span className="eq" aria-label="Playing"><i /><i /><i /></span>}
         </span>
         <span className="queue-text">

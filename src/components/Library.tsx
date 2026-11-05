@@ -16,6 +16,8 @@ export interface LibraryActions extends CardActions {
 }
 
 interface Props {
+  /** The folder heading (see folderTitle in lib/libraryFilter.ts). */
+  title: string;
   /** Already filtered and sorted (see lib/libraryView.ts). */
   videos: Video[];
   /** The current folder before search and filters. */
@@ -35,12 +37,11 @@ export default function Library(props: Props) {
   const { videos, folderVideos, folders, query, actions } = props;
   const selection = useSelection(videos, query.folder);
   const activeFolder = folders.find((folder) => folder.id === query.folder) ?? null;
-  const title = activeFolder?.name ?? (query.folder === UNFILED ? "Unfiled" : "All videos");
 
   return (
     <>
       <LibraryHeader
-        title={title}
+        title={props.title}
         folderVideos={folderVideos}
         downloading={folderVideos.filter((video) => props.downloads.has(video.id)).length}
         folder={activeFolder}
@@ -95,10 +96,10 @@ function LibraryHeader({ title, folderVideos, downloading, folder, actions, tool
   const [renaming, setRenaming] = useState(false);
   const [draft, setDraft] = useState("");
   const missing = folderVideos.filter((video) => !video.file_path).length - downloading;
-  const facts = [plural(folderVideos.length, "video")];
-  if (folderVideos.length > 0) facts.push(formatLongDuration(totalDuration(folderVideos)));
-  if (downloading > 0) facts.push(`${downloading} downloading`);
-  if (missing > 0) facts.push(`${missing} not downloaded`);
+  const facts = [{ text: plural(folderVideos.length, "video"), live: false }];
+  if (folderVideos.length > 0) facts.push({ text: formatLongDuration(totalDuration(folderVideos)), live: false });
+  if (downloading > 0) facts.push({ text: `${downloading} downloading`, live: true });
+  if (missing > 0) facts.push({ text: `${missing} not downloaded`, live: false });
 
   useEffect(() => setRenaming(false), [folder?.id]);
 
@@ -137,9 +138,9 @@ function LibraryHeader({ title, folderVideos, downloading, folder, actions, tool
           <h1 className="screen-title">{title}</h1>
         )}
         <p className="screen-sub">
-          {facts.map((fact, i) => (
-            <span key={fact} className={i > 0 && fact.includes("downloading") ? "live-fact" : undefined}>
-              {fact}
+          {facts.map((fact) => (
+            <span key={fact.text} className={fact.live ? "live-fact" : undefined}>
+              {fact.text}
             </span>
           ))}
         </p>

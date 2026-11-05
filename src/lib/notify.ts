@@ -2,9 +2,9 @@
 // without threading callbacks through props; <Toasts /> renders the list.
 // Replaces window.alert, which blocks the whole window.
 
-export type ToastKind = "info" | "error";
+type ToastKind = "info" | "error";
 
-export interface Toast {
+interface Toast {
   id: number;
   kind: ToastKind;
   message: string;

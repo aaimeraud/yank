@@ -29,7 +29,7 @@ export interface PlayerState {
 export const EMPTY_PLAYER: PlayerState = { current: null, history: [], queue: [], context: null, cursor: -1 };
 
 /** Older history is dropped; nobody pages back through 200 videos. */
-export const HISTORY_LIMIT = 50;
+const HISTORY_LIMIT = 50;
 
 type Playable = (id: string) => boolean;
 

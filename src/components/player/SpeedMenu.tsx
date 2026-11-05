@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import { useDismiss } from "../../hooks/useDismiss";
 
-export const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 
 interface Props {
   speed: number;
@@ -11,22 +12,7 @@ interface Props {
 export default function SpeedMenu({ speed, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: PointerEvent) => {
-      if (!ref.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("pointerdown", close);
-    document.addEventListener("keydown", escape);
-    return () => {
-      document.removeEventListener("pointerdown", close);
-      document.removeEventListener("keydown", escape);
-    };
-  }, [open]);
+  useDismiss(ref, open, () => setOpen(false));
 
   return (
     <div className="vv-menu-wrap" ref={ref}>

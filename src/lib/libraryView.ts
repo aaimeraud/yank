@@ -43,9 +43,14 @@ export const STATUS_LABELS: Record<StatusFilter, string> = {
 };
 
 export function viewVideos(videos: Video[], query: LibraryQuery): Video[] {
+  return refineVideos(filterVideos(videos, query.folder), query);
+}
+
+/** Search, source and status filters plus the sort, on one folder's videos. */
+export function refineVideos(folderVideos: Video[], query: LibraryQuery): Video[] {
   const needle = normalize(query.search);
   const sources = new Set(query.sources);
-  const matching = filterVideos(videos, query.folder).filter(
+  const matching = folderVideos.filter(
     (video) =>
       (sources.size === 0 || sources.has(sourceKey(video.source))) &&
       matchesStatus(video, query.status) &&

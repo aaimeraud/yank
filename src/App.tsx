@@ -20,7 +20,6 @@ import { useDownloads } from "./hooks/useDownloads";
 import { usePlayer } from "./hooks/usePlayer";
 import { copyText } from "./lib/clipboard";
 import { enqueueMessage } from "./lib/enqueue";
-import { ALL, UNFILED } from "./lib/libraryFilter";
 import { attempt, notify, succeeds } from "./lib/notify";
 import { usePref } from "./lib/prefs";
 import { isActive, queueHeadline } from "./lib/queueGroups";
@@ -40,13 +39,6 @@ export default function App() {
   const screen: View = view === "player" && !playing ? "library" : view;
   const mode = screen === "player" ? "full" : "mini";
 
-  const folderLabel =
-    library.query.folder === ALL
-      ? "All videos"
-      : library.query.folder === UNFILED
-        ? "Unfiled"
-        : (library.folders.find((folder) => folder.id === library.query.folder)?.name ?? "the library");
-
   /** Start a video from the grid: what is visible becomes "Next from …". */
   const playFromLibrary = async (video: Video) => {
     // The card of what is already playing just opens the player.
@@ -55,7 +47,7 @@ export default function App() {
       return;
     }
     const ok = await player.playVideo(video, {
-      label: folderLabel,
+      label: library.title,
       ids: library.visibleVideos.filter((v) => v.file_path).map((v) => v.id),
     });
     if (ok) setView("player");
@@ -118,12 +110,16 @@ export default function App() {
     setView("library");
   };
 
-  const activeDownloads = downloads.queue.filter((entry) => isActive(entry.status)).length;
   // Active rows by video, so library cards can show their download live.
-  const downloadsByVideo = useMemo(() => {
+  const { downloadsByVideo, activeDownloads } = useMemo(() => {
     const map = new Map<string, QueueEntry>();
-    for (const entry of downloads.queue) if (isActive(entry.status)) map.set(entry.video_id, entry);
-    return map;
+    let active = 0;
+    for (const entry of downloads.queue) {
+      if (!isActive(entry.status)) continue;
+      map.set(entry.video_id, entry);
+      active += 1;
+    }
+    return { downloadsByVideo: map, activeDownloads: active };
   }, [downloads.queue]);
 
   const classes = ["app"];
@@ -161,6 +157,7 @@ export default function App() {
             <section className="screen" key={screen === "player" ? "library" : screen}>
               {(screen === "library" || screen === "player") && (
                 <Library
+                  title={library.title}
                   videos={library.visibleVideos}
                   folderVideos={library.folderVideos}
                   libraryTotal={library.videos.length}

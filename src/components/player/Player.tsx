@@ -6,6 +6,7 @@ import { displayTitle } from "../../lib/display";
 import { formatClock, formatDuration } from "../../lib/format";
 import { sourceLabel } from "../../lib/source";
 import SourceIcon from "../SourceIcon";
+import ThumbImage from "../ThumbImage";
 import { FinderIcon, LinkIcon, PlayIcon } from "../icons";
 import Controls from "./Controls";
 import MiniBar from "./MiniBar";
@@ -201,11 +202,7 @@ function VideoInfo({ video, nextVideo, onNext, onReveal, onCopyLink }: InfoProps
       {nextVideo && (
         <button className="vv-upnext" onClick={onNext} title="Play it now (Shift+N)">
           <span className="vv-upnext-thumb">
-            {nextVideo.thumbnail_path ? (
-              <img src={convertFileSrc(nextVideo.thumbnail_path)} alt="" />
-            ) : (
-              <SourceIcon source={nextVideo.source} size={18} />
-            )}
+            <ThumbImage video={nextVideo} size={18} />
           </span>
           <span className="vv-upnext-text">
             <span className="vv-upnext-label">Up next</span>

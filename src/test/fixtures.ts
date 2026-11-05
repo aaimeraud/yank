@@ -1,4 +1,5 @@
-// Builders shared by the unit tests. Not imported by app code.
+// Builders shared by the unit tests and the dev-only browser preview
+// (src/dev/browserPreview.ts). Never imported by code that ships.
 
 import type { QueueEntry, Video } from "../types";
 

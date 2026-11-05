@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api } from "../api";
 import { copyText } from "../lib/clipboard";
 import { displayTitle } from "../lib/display";
-import { formatEta, formatSpeed } from "../lib/format";
+import { formatTransfer } from "../lib/format";
 import { attempt, notify } from "../lib/notify";
 import {
   STATUS_LABEL,
@@ -18,7 +18,7 @@ import type { QueueEntry } from "../types";
 import SourceIcon from "./SourceIcon";
 
 /** Every queue action the view can trigger, by queue id. */
-export interface QueueActions {
+interface QueueActions {
   pause: (id: string) => void;
   resume: (id: string) => void;
   cancel: (id: string) => void;
@@ -165,7 +165,7 @@ function Meter({ value, label, done = false }: { value: number; label: string; d
 function rowMeta(entry: QueueEntry): string {
   switch (entry.status) {
     case "downloading":
-      return [formatSpeed(entry.speed), formatEta(entry.eta)].filter(Boolean).join(" · ") || "Starting…";
+      return formatTransfer(entry.speed, entry.eta) || "Starting…";
     case "queued":
       return "Waiting for a free slot";
     case "paused":

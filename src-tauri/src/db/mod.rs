@@ -12,7 +12,9 @@ pub mod queue;
 pub mod videos;
 
 use crate::error::AppResult;
-use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions};
+use sqlx::sqlite::{
+    SqliteConnectOptions, SqliteJournalMode, SqlitePool, SqlitePoolOptions, SqliteSynchronous,
+};
 use std::path::Path;
 
 /// SQLite refuses statements with more than 999 bound variables on older
@@ -24,7 +26,11 @@ pub async fn open(path: &Path) -> AppResult<SqlitePool> {
     let options = SqliteConnectOptions::new()
         .filename(path)
         .create_if_missing(true)
-        .foreign_keys(true);
+        .foreign_keys(true)
+        // WAL + NORMAL: one fsync per checkpoint instead of per commit. A
+        // 500-entry playlist enqueue is a few thousand small commits.
+        .journal_mode(SqliteJournalMode::Wal)
+        .synchronous(SqliteSynchronous::Normal);
     let pool = SqlitePoolOptions::new()
         .max_connections(5)
         .connect_with(options)

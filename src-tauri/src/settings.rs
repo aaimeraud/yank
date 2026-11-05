@@ -8,6 +8,7 @@ use crate::error::{AppError, AppResult};
 use crate::models::Format;
 use serde::Serialize;
 use sqlx::SqlitePool;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 /// Keys as stored in the database. `default_quality` predates the `Format`
@@ -32,28 +33,25 @@ pub struct Settings {
 impl Settings {
     /// `fallback_dir` is used when the user never picked a folder
     /// (`~/Movies/Yank` in the app, a temp dir in tests).
+    ///
+    /// Runs on every enqueue and worker start, so it is one query. An empty
+    /// value counts as unset, which is how the UI clears the cookies file.
     pub async fn load(pool: &SqlitePool, fallback_dir: &Path) -> Self {
-        Self {
-            download_dir: get(pool, KEY_DOWNLOAD_DIR)
+        let mut rows: HashMap<String, String> =
+            sqlx::query_as::<_, (String, String)>("SELECT key, value FROM settings WHERE value != ''")
+                .fetch_all(pool)
                 .await
+                .map(|rows| rows.into_iter().collect())
+                .unwrap_or_default();
+        Self {
+            download_dir: rows
+                .remove(KEY_DOWNLOAD_DIR)
                 .unwrap_or_else(|| fallback_dir.display().to_string()),
-            default_format: Format::parse(get(pool, KEY_FORMAT).await.as_deref()),
-            concurrency: clamp_concurrency(get(pool, KEY_CONCURRENCY).await.as_deref()),
-            cookies_path: get(pool, KEY_COOKIES).await,
+            default_format: Format::parse(rows.get(KEY_FORMAT).map(String::as_str)),
+            concurrency: clamp_concurrency(rows.get(KEY_CONCURRENCY).map(String::as_str)),
+            cookies_path: rows.remove(KEY_COOKIES),
         }
     }
-}
-
-/// Read one value. An empty string counts as unset, which is how the UI
-/// clears the cookies file.
-pub async fn get(pool: &SqlitePool, key: &str) -> Option<String> {
-    sqlx::query_scalar::<_, String>("SELECT value FROM settings WHERE key = ?")
-        .bind(key)
-        .fetch_optional(pool)
-        .await
-        .ok()
-        .flatten()
-        .filter(|value| !value.is_empty())
 }
 
 /// Validate and store one value. Unknown keys are rejected so a frontend typo
@@ -150,7 +148,12 @@ mod tests {
         assert!(set(&pool, "theme", "dark").await.is_err());
         // An unknown format is coerced to the default rather than stored as-is.
         set(&pool, KEY_FORMAT, "8k-hdr").await.unwrap();
-        assert_eq!(get(&pool, KEY_FORMAT).await.as_deref(), Some("video"));
+        let stored: String = sqlx::query_scalar("SELECT value FROM settings WHERE key = ?")
+            .bind(KEY_FORMAT)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(stored, "video");
     }
 
     #[test]

@@ -320,3 +320,26 @@ async fn live_pause_then_resume_completes() {
     assert_files_exist(&manager).await;
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[tokio::test]
+async fn progress_events_are_throttled_but_the_last_one_arrives() {
+    let h = Harness::new("throttle", 0, "").await;
+    // Swap in a yt-dlp that floods 200 progress lines with no pause.
+    std::fs::write(
+        h.dir.join("fake-yt-dlp.sh"),
+        format!(
+            "#!/bin/sh\ni=0\nwhile [ $i -lt 200 ]; do\n  i=$((i+1))\n  \
+             echo \"YANK_PROGRESS:{{\\\"percent\\\":$((i/2)).0}}\"\ndone\n\
+             : > \"{dir}/fake.mp4\"\necho \"YANK_FILE:{dir}/fake.mp4\"\n",
+            dir = h.dir.display()
+        ),
+    )
+    .unwrap();
+    let id = h.start_in(None).await;
+    h.wait_for(&id, QueueStatus::Done).await;
+
+    let events = h.events.lock().unwrap();
+    let progress: Vec<f64> = events.iter().filter_map(|e| e.progress).collect();
+    assert!(progress.len() < 20, "200 lines became {} events", progress.len());
+    assert_eq!(progress.last(), Some(&100.0), "the full bar always reaches the UI");
+}

@@ -16,6 +16,10 @@ use tokio::sync::Mutex;
 /// know roughly where a download is if the app quits.
 const DB_WRITE_INTERVAL: Duration = Duration::from_secs(1);
 
+/// The UI re-renders on every event; 4 Hz keeps the bar smooth without
+/// flooding IPC when several downloads run at once.
+const EMIT_INTERVAL: Duration = Duration::from_millis(250);
+
 #[derive(Debug, Default)]
 pub struct Outcome {
     pub success: bool,
@@ -27,9 +31,8 @@ pub struct Outcome {
 
 pub async fn run(manager: &DownloadManager, queue_id: &str, request: &DownloadRequest) -> Outcome {
     let toolchain = manager.toolchain();
-    let mut command = tokio::process::Command::new(toolchain.ytdlp_program());
+    let mut command = toolchain.command();
     command
-        .args(toolchain.common_args())
         .args(download_args(request))
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -88,10 +91,14 @@ async fn follow_stdout(
     let mut lines = BufReader::new(stdout).lines();
     let mut file = None;
     let mut last_write: Option<Instant> = None;
+    let mut last_emit: Option<Instant> = None;
     while let Ok(Some(line)) = lines.next_line().await {
         match parse_line(&line) {
             Line::Progress(progress) => {
-                if last_write.is_none_or(|at| at.elapsed() >= DB_WRITE_INTERVAL) {
+                let due = |at: Option<Instant>, every| at.is_none_or(|at| at.elapsed() >= every);
+                // 100% always goes out, so the bar never stalls short of full.
+                let last = progress.percent >= 100.0;
+                if due(last_write, DB_WRITE_INTERVAL) {
                     last_write = Some(Instant::now());
                     let _ = queue::set_progress(
                         manager.pool(),
@@ -102,7 +109,10 @@ async fn follow_stdout(
                     )
                     .await;
                 }
-                manager.emit(progress_event(queue_id, progress));
+                if last || due(last_emit, EMIT_INTERVAL) {
+                    last_emit = Some(Instant::now());
+                    manager.emit(progress_event(queue_id, progress));
+                }
             }
             Line::File(path) => file = Some(path),
             Line::Other => {}

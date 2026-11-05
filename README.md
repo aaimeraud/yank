@@ -16,6 +16,13 @@ and Yank downloads it, files it in a library, and plays it in its own player.
 - **Player**: tabs, resume where you stopped, watched at 90%, play queue,
   autoplay through a folder, keyboard shortcuts, picture in picture.
 
+## Install
+
+Download the `.dmg` for your Mac (Apple Silicon `aarch64`, Intel `x64`) from
+[Releases](https://github.com/aaimeraud/yank/releases), drag Yank to
+Applications, and install the tools below. The app is not signed: the first
+time, right-click it, choose Open, then Open again.
+
 ## Requirements
 
 Yank runs the tools you install; it does not bundle them yet.
@@ -63,7 +70,8 @@ recorded in `.taste-skill/app/direction.json` and summed up at the top of
 | `cargo clippy --all-targets` | Rust lints | ~5 s |
 | `cargo test -- --ignored` | Live tests against YouTube with your real yt-dlp (network) | ~1 min |
 
-Build a `.app`: `bun run tauri build` (unsigned, personal use).
+Build a `.app`: `bun run tauri build` (unsigned, personal use). Cutting a
+release: [docs/releasing.md](docs/releasing.md).
 
 Data lives in `~/Library/Application Support/com.yank.app/yank.db` (SQLite),
 logs in `~/Library/Logs/com.yank.app/yank.log`, downloads in `~/Movies/Yank`
@@ -91,5 +99,10 @@ src-tauri/src/          Rust backend
   settings.rs, models.rs
 src-tauri/migrations/   schema, applied at startup
 docs/adr/               why things are the way they are
+scripts/release.py      version bump + changelog (run with uv)
 GLOSSARY.md             the words the code uses
 ```
+
+## License
+
+[MIT](LICENSE). Changes per version: [CHANGELOG.md](CHANGELOG.md).

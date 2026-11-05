@@ -1,3 +1,11 @@
+<p align="center">
+  <img src="docs/assets/icon-light.png" width="128" height="128" alt="Yank's app icon in light mode: a white script y on a pink tile">
+  &nbsp;&nbsp;
+  <img src="docs/assets/icon-dark.png" width="128" height="128" alt="Yank's app icon in dark mode: a pink script y on a near-black tile">
+</p>
+
+<p align="center"><sub>Light and dark, made in Icon Composer. The Dock icon follows your system appearance.</sub></p>
+
 # Yank
 
 A macOS desktop app for [yt-dlp](https://github.com/yt-dlp/yt-dlp): paste a

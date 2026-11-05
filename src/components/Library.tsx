@@ -38,6 +38,9 @@ export default function Library(props: Props) {
   const selection = useSelection(videos, query.folder);
   const activeFolder = folders.find((folder) => folder.id === query.folder) ?? null;
 
+  // First run: the greeting is the page's only headline.
+  if (props.libraryTotal === 0) return <Welcome />;
+
   return (
     <>
       <LibraryHeader
@@ -59,7 +62,7 @@ export default function Library(props: Props) {
       )}
 
       {videos.length === 0 ? (
-        <p className="empty">{emptyMessage(query, activeFolder?.name, props.libraryTotal)}</p>
+        <p className="empty">{emptyMessage(query, activeFolder?.name)}</p>
       ) : (
         <div className="grid">
           {videos.map((video, index) => (
@@ -168,13 +171,22 @@ function LibraryHeader({ title, folderVideos, downloading, folder, actions, tool
   );
 }
 
-function emptyMessage(query: LibraryQuery, folderName: string | undefined, libraryTotal: number): string {
+/** The first run: the library is empty, so the brand says hello in its own hand. */
+function Welcome() {
+  return (
+    <div className="welcome">
+      <p className="greeting">Ready when you are</p>
+      <p className="empty">
+        Paste a link from YouTube, X, Twitch or any site yt-dlp supports in the box above. Yank
+        downloads it, files it here and plays it.
+      </p>
+    </div>
+  );
+}
+
+function emptyMessage(query: LibraryQuery, folderName: string | undefined): string {
   if (isFiltered(query)) return "No videos match these filters.";
-  if (query.folder === ALL) {
-    return libraryTotal === 0
-      ? "No videos yet. Paste a YouTube, X, Twitch or any other video URL in the sidebar."
-      : "No videos.";
-  }
+  if (query.folder === ALL) return "No videos.";
   if (query.folder === UNFILED) return "No unfiled videos.";
   return `Nothing in "${folderName ?? "this folder"}" yet.`;
 }

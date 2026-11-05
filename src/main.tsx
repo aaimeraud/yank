@@ -1,6 +1,8 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import "@fontsource-variable/inter";
+// The brand face. Latin only: the package's Japanese subsets would add ~0.9 MB.
+import "@fontsource/kapakana/latin-400.css";
 import App from "./App";
 
 async function start() {

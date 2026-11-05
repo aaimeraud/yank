@@ -70,7 +70,9 @@ recorded in `.taste-skill/app/direction.json` and summed up at the top of
 | `cargo clippy --all-targets` | Rust lints | ~5 s |
 | `cargo test -- --ignored` | Live tests against YouTube with your real yt-dlp (network) | ~1 min |
 
-Build a `.app`: `bun run tauri build` (unsigned, personal use). Cutting a
+Build a `.app`: `bun run tauri build` (unsigned, personal use). Needs Xcode 26
+or later: the app icon is an Icon Composer file compiled at bundle time
+([ADR 0009](docs/adr/0009-brand-icon-and-faces.md)). Cutting a
 release: [docs/releasing.md](docs/releasing.md).
 
 Data lives in `~/Library/Application Support/com.yank.app/yank.db` (SQLite),

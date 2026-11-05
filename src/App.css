@@ -4,8 +4,11 @@
  * - One ground (#000) for the top bar, the sidebar and the canvas, split by
  *   1px rules. Cards step up in lightness (#111, then #2a2a2a); no borders
  *   or shadows on anything at rest. Only floating menus and toasts cast one.
- * - One hue, the lime --accent, and only on data: download progress, the
- *   watched bar, the selected filter, and the mark. Never on buttons or nav.
+ * - One hue, the brand pink --accent from the app icon, and only on data:
+ *   download progress, the watched bar, the selected filter, and the mark.
+ *   Never on buttons or nav. Errors are orange (--negative), well clear of it.
+ * - Two faces: Inter for everything you read, and Kapakana, the brand's script,
+ *   for its one moment (the first-run greeting).
  * - The one primary action (Download) is primary by inversion: white pill,
  *   black text.
  * - Motion is transform and opacity only, and switches off under
@@ -23,12 +26,10 @@
   --nav: #bbbbbb;
   --muted: #b4b4b4;
   --faint: #949494;
-  --accent: #c6f24e;
-  --on-accent: #0b0d04;
-  --negative: #e5484d;
-  --pill-positive-bg: #222a10; --pill-positive-ink: #c6f24e;
-  --pill-negative-bg: #2c1a20; --pill-negative-ink: #f06d84;
-  --pill-warning-bg: #2b2414; --pill-warning-ink: #e5a93b;
+  --accent: #ff4a61;
+  --on-accent: #ffffff;
+  --negative: #ff9f43;
+  --pill-negative-bg: #2c1f10; --pill-negative-ink: #ffb26b;
   --pill-neutral-bg: #222222;
 
   --radius-card: 18px;
@@ -51,6 +52,9 @@
   --medium: 260ms;
   --slow: 520ms;
 
+  --font-text: "Inter Variable", "Inter", system-ui, sans-serif;
+  --font-brand: "Kapakana", "Snell Roundhand", cursive;
+
   color-scheme: dark;
 }
 
@@ -58,7 +62,7 @@
 html, body, #root { height: 100%; margin: 0; overflow: hidden; }
 
 body {
-  font-family: "Inter Variable", "Inter", system-ui, sans-serif;
+  font-family: var(--font-text);
   font-size: var(--fs-body);
   line-height: 1.45;
   color: var(--text);
@@ -69,6 +73,23 @@ body {
 }
 
 button, input, select { font: inherit; color: inherit; }
+/* Every select: the native macOS popup look ignores padding and radius and
+   draws its own arrows, so it is switched off and one chevron is drawn here.
+   Rules below set background-color only, never the shorthand, or the
+   chevron would be wiped out. The list that opens stays native. */
+select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding: 0 30px 0 12px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23b4b4b4' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 10px 6px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+select:disabled { cursor: default; opacity: 0.5; }
 button { cursor: pointer; }
 :focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 ::selection { background: var(--accent); color: var(--on-accent); }
@@ -92,9 +113,12 @@ button { cursor: pointer; }
   -webkit-user-select: none;
 }
 
-.brand { display: flex; align-items: center; gap: 9px; height: 100%; padding-left: 88px; }
-.brand-name { font-size: 16px; font-weight: 650; letter-spacing: -0.02em; }
+.brand { display: flex; align-items: center; gap: 5px; height: 100%; padding-left: 88px; }
 .mark { flex: 0 0 auto; display: block; }
+/* Platform logos are grey everywhere, so YouTube red and Twitch purple never
+   sit next to the brand pink; the meta line names the source anyway. */
+.source-icon { filter: grayscale(1) brightness(1.15); }
+.thumb-placeholder .source-icon { filter: grayscale(1) brightness(1.5); opacity: 0.6; }
 
 .urlbox { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 720px; justify-self: center; }
 .urlbox-field {
@@ -116,10 +140,9 @@ button { cursor: pointer; }
 .urlbox-field input::placeholder { color: var(--faint); }
 .urlbox-field select {
   height: 28px;
-  padding: 0 10px;
   border: 0;
   border-radius: var(--radius-control);
-  background: var(--raised);
+  background-color: var(--raised);
   color: var(--muted);
   font-size: var(--fs-small);
 }
@@ -251,9 +274,9 @@ button { cursor: pointer; }
 .screen-title {
   margin: 0;
   font-size: var(--fs-title);
-  font-weight: 650;
+  font-weight: 500;
   line-height: 1.2;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -268,13 +291,17 @@ button { cursor: pointer; }
   background: var(--surface);
   color: var(--text);
   font-size: var(--fs-title);
-  font-weight: 650;
-  letter-spacing: -0.02em;
+  font-weight: 500;
+  letter-spacing: -0.01em;
   outline: 1px solid var(--control);
 }
 .screen-sub { margin: 6px 0 0; color: var(--muted); }
 .screen-sub span + span::before { content: "·"; margin: 0 8px; color: var(--faint); }
-.screen-sub .live-fact { color: var(--accent); }
+.screen-sub .live-fact { color: var(--text); }
+.screen-sub .live-fact::before {
+  content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 6px;
+  border-radius: 50%; background: var(--accent); vertical-align: 1px;
+}
 .screen-actions { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
 
 .ghost, .tool-link {
@@ -302,6 +329,10 @@ button { cursor: pointer; }
 .link-button:hover { color: var(--text); }
 
 .empty { max-width: 46ch; margin: 48px 0; color: var(--muted); font-size: 15px; line-height: 1.6; }
+/* The one place the brand face speaks, at a size where a script still reads. */
+.welcome { margin: 12vh 0 64px; }
+.welcome .greeting { margin: 0 0 24px; font-family: var(--font-brand); font-size: 64px; line-height: 1.05; color: var(--text); }
+.welcome .empty { margin: 0; max-width: 42ch; line-height: 1.55; }
 
 /* ---------------------------------------------------------------- library */
 
@@ -323,9 +354,9 @@ button { cursor: pointer; }
 }
 .count-card:hover { background: var(--surface-hover); }
 .count-card:active { transform: scale(0.98); }
-.count-card.selected { background: #151a08; outline: 1.5px solid var(--accent); outline-offset: -1.5px; }
+.count-card.selected { outline: 1px solid var(--accent); outline-offset: -1px; }
 .count-label { display: flex; align-items: center; gap: 7px; color: var(--faint); font-size: 13px; }
-.count-value { font-size: var(--fs-section); font-weight: 600; }
+.count-value { font-size: var(--fs-section); font-weight: 500; }
 .count-card.selected .count-value { color: var(--accent); }
 
 .filter-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -346,10 +377,10 @@ button { cursor: pointer; }
 .search-field input::placeholder { color: var(--faint); }
 .filter-row select, .settings select {
   height: var(--control-height);
-  padding: 0 12px;
+  padding-left: 14px;
   border: 0;
   border-radius: var(--radius-control);
-  background: var(--surface);
+  background-color: var(--surface);
   color: var(--muted);
   font-size: 13px;
 }
@@ -454,7 +485,7 @@ button { cursor: pointer; }
 .card .title {
   margin-top: 10px;
   padding: 0 2px;
-  font-weight: 550;
+  font-weight: 500;
   line-height: 1.35;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -594,23 +625,33 @@ button { cursor: pointer; }
 
 .meter { flex: 0 0 200px; height: 4px; border-radius: 2px; background: var(--raised); overflow: hidden; }
 .meter.done > span { background: #555555; }
+/* Pink means "moving". A paused, failed or cancelled row keeps its bar in
+   grey; a finished row has nothing left to show, so its bar goes (the column
+   keeps its width, so rows stay aligned). */
+.queue-row:not(.is-downloading):not(.is-queued) .meter > span { background: #5c5c5c; }
+.queue-row.is-done .meter { visibility: hidden; }
 .queue-row.is-downloading .meter > span { animation: shimmer 1.6s ease-in-out infinite; }
 
+/* A label, not a control: square-cornered and shorter than the pill buttons
+   beside it, and nothing happens on hover. */
 .qstatus {
   flex: 0 0 96px;
-  height: 22px;
+  height: 20px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-control);
-  background: var(--pill-neutral-bg);
+  border-radius: 4px;
+  cursor: default;
   color: var(--muted);
   font-size: var(--fs-small);
   font-weight: 500;
 }
-.qstatus.downloading { background: var(--pill-positive-bg); color: var(--pill-positive-ink); }
-.qstatus.failed { background: var(--pill-negative-bg); color: var(--pill-negative-ink); }
-.qstatus.paused { background: var(--pill-warning-bg); color: var(--pill-warning-ink); }
+/* A state is text, never a capsule like the buttons beside it. Only the two
+   states that ask for a decision are boxed: Failed filled in coral, Paused
+   outlined. The pink stays on the bar, so "Downloading" is plain ink. */
+.qstatus.downloading { color: var(--text); }
+.qstatus.failed { background: var(--negative); color: #000000; font-weight: 600; }
+.qstatus.paused { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--control); }
 .qstatus.done, .qstatus.cancelled, .qstatus.queued { color: var(--faint); }
 .qactions { display: flex; justify-content: flex-end; gap: 6px; flex: 0 0 166px; }
 .qactions button { height: 30px; background: var(--raised); }
@@ -618,7 +659,7 @@ button { cursor: pointer; }
 
 .queue-group { padding: 6px; border-radius: 20px; background: #0b0b0b; }
 .queue-group-head { display: flex; align-items: center; gap: 14px; padding: 10px 12px 12px; }
-.queue-group-head .qtitle { font-size: 15px; font-weight: 600; }
+.queue-group-head .qtitle { font-size: 15px; font-weight: 500; }
 
 .queue-error { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding-left: 29px; }
 .queue .queue-error-toggle {
@@ -671,7 +712,7 @@ button { cursor: pointer; }
 .setting-row p { margin: 3px 0 0; color: var(--faint); font-size: 13px; }
 .setting-control { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex: 0 1 auto; min-width: 0; max-width: 62%; }
 .settings .path { min-width: 3em; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 13px; }
-.settings select { min-width: 180px; max-width: 100%; background: var(--raised); color: var(--text); }
+.settings select { min-width: 180px; max-width: 100%; background-color: var(--raised); color: var(--text); }
 .settings button { background: var(--raised); }
 .settings button:hover { background: #3a3a3a; }
 .settings .tool-ok { color: var(--muted); }
@@ -878,7 +919,7 @@ button { cursor: pointer; }
 .vv-info { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
 .vv-head { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .vv-source { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: var(--fs-small); }
-.vv-title { max-width: 860px; margin: 0; font-size: var(--fs-title); font-weight: 650; line-height: 1.25; letter-spacing: -0.02em; }
+.vv-title { max-width: 860px; margin: 0; font-size: var(--fs-title); font-weight: 500; line-height: 1.25; letter-spacing: -0.02em; }
 .vv-meta { margin: 0; color: var(--faint); font-size: 13px; }
 .vv-actions { display: flex; gap: 6px; margin-top: 6px; }
 .vv-actions button {
@@ -1005,7 +1046,7 @@ button { cursor: pointer; }
   animation: panel-in var(--medium) var(--ease-out) both;
 }
 .queue-panel-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 16px 10px 20px; }
-.queue-panel-head h2 { margin: 0; font-size: var(--fs-section); font-weight: 650; }
+.queue-panel-head h2 { margin: 0; font-size: var(--fs-section); font-weight: 500; }
 .queue-panel-body { flex: 1; overflow-y: auto; padding: 0 12px 28px; }
 .icon-button {
   width: 28px;
@@ -1185,7 +1226,7 @@ button { cursor: pointer; }
 @media (max-width: 640px) {
   .topbar { grid-template-columns: auto minmax(0, 1fr); gap: 12px; padding-right: 16px; }
   .brand { padding-left: 16px; }
-  .brand-name, .intake { display: none; }
+  .intake { display: none; }
   .urlbox-field select { display: none; }
   .primary { padding: 0 14px; }
   .workspace { flex-direction: column; }

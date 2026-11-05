@@ -343,3 +343,23 @@ async fn progress_events_are_throttled_but_the_last_one_arrives() {
     assert!(progress.len() < 20, "200 lines became {} events", progress.len());
     assert_eq!(progress.last(), Some(&100.0), "the full bar always reaches the UI");
 }
+
+#[tokio::test]
+async fn download_on_a_paused_video_continues_that_row() {
+    let h = Harness::new("paused-download", 0, "").await;
+    video(h.manager.pool(), "v1", None).await;
+    let job = queue::insert(h.manager.pool(), "v1", "https://example.com/v1", Format::Audio)
+        .await
+        .unwrap();
+    queue::transition(h.manager.pool(), &job.queue_id, &[QueueStatus::Queued], QueueStatus::Paused)
+        .await
+        .unwrap();
+
+    // The card offers "Download" for a paused video; it used to do nothing.
+    h.manager.download_video("v1", None).await.unwrap();
+
+    h.wait_for(&job.queue_id, QueueStatus::Done).await;
+    let rows = queue::list(h.manager.pool()).await.unwrap();
+    assert_eq!(rows.len(), 1, "no second row for the same video");
+    assert_eq!(rows[0].format.as_deref(), Some("audio"), "the paused row keeps its format");
+}

@@ -17,7 +17,9 @@ pub async fn enqueue_url(
     manager.enqueue_url(&url, format).await
 }
 
-/// Download a library video again (its file is missing or was never fetched).
+/// Download a library video: its file is missing or was never fetched, or its
+/// download is paused (then that row continues, with its original format, and
+/// `format` is ignored).
 #[tauri::command]
 pub async fn download_video(
     manager: Manager<'_>,

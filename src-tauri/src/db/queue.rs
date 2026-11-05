@@ -100,6 +100,17 @@ pub async fn has_active(pool: &SqlitePool, video_id: &str) -> AppResult<bool> {
     Ok(found.is_some())
 }
 
+/// The newest paused row of this video, if any.
+pub async fn paused_row(pool: &SqlitePool, video_id: &str) -> AppResult<Option<String>> {
+    Ok(sqlx::query_scalar(
+        "SELECT id FROM queue_items WHERE video_id = ? AND status = 'paused' \
+         ORDER BY created_at DESC, rowid DESC LIMIT 1",
+    )
+    .bind(video_id)
+    .fetch_optional(pool)
+    .await?)
+}
+
 /// True while a yt-dlp process for this video is running or about to start.
 pub async fn is_running(pool: &SqlitePool, video_id: &str) -> AppResult<bool> {
     let sql = format!("SELECT 1 FROM queue_items WHERE video_id = ? AND status IN {RUNNING}");

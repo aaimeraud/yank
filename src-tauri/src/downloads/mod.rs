@@ -116,18 +116,23 @@ impl DownloadManager {
         Ok(summary)
     }
 
-    /// Download a library video again, e.g. after its file went missing.
+    /// Download a library video: a new one, one whose file went missing, or
+    /// one whose download is paused (the card offers "Download" for all three).
     pub async fn download_video(&self, video_id: &str, format: Option<Format>) -> AppResult<()> {
+        let fallback = self.settings().await.default_format;
         let _serialized = self.inner.enqueue_lock.lock().await;
-        if queue::has_active(self.pool(), video_id).await? {
+        if queue::is_running(self.pool(), video_id).await? {
+            return Ok(());
+        }
+        // Continue the paused row rather than start a second one: it keeps its
+        // `.part` file and the format it was queued with.
+        if let Some(paused) = queue::paused_row(self.pool(), video_id).await? {
+            let job = queue::requeue(self.pool(), &paused, fallback).await?;
+            self.spawn(job);
             return Ok(());
         }
         let video = crate::db::videos::get(self.pool(), video_id).await?;
-        let format = match format {
-            Some(format) => format,
-            None => self.settings().await.default_format,
-        };
-        let job = queue::insert(self.pool(), video_id, &video.url, format).await?;
+        let job = queue::insert(self.pool(), video_id, &video.url, format.unwrap_or(fallback)).await?;
         self.spawn(job);
         Ok(())
     }

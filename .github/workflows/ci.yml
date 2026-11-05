@@ -29,3 +29,6 @@ jobs:
       - run: uv run scripts/release.py check
       - run: uv run scripts/test_release.py
       - run: bun run check
+      # The release bundles this; fail here first if the runner's Xcode cannot
+      # read .icon documents (Xcode 26+).
+      - run: bun run icon:mac

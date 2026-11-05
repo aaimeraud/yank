@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { mediaSrc } from "../lib/media";
 import type { Video } from "../types";
 import SourceIcon from "./SourceIcon";
 
@@ -9,5 +9,5 @@ export default function ThumbImage({ video, size }: { video: Video; size: number
   const path = video.thumbnail_path;
   // Keyed on the path, so a list row reused for another video retries.
   if (!path || broken === path) return <SourceIcon source={video.source} size={size} />;
-  return <img src={convertFileSrc(path)} alt="" loading="lazy" onError={() => setBroken(path)} />;
+  return <img src={mediaSrc(path)} alt="" loading="lazy" onError={() => setBroken(path)} />;
 }

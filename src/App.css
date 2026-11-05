@@ -1170,6 +1170,195 @@ button { cursor: pointer; }
 }
 .toast-close:hover { background: #3a3a3a; color: var(--text); }
 
+/* ---------------------------------------------------------------- youtube */
+
+/* The search row: a wide field and the kind switch. Same surfaces as the
+   library's search, one step taller because here it is the page's job. */
+.yt-search { display: flex; align-items: center; gap: 8px; margin-bottom: 26px; }
+.yt-field { flex: 1 1 auto; height: 44px; max-width: 760px; padding-right: 8px; }
+.yt-field input { font-size: var(--fs-body); }
+.yt-field input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+.yt-clear {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--raised);
+  color: var(--muted);
+}
+.yt-clear:hover { color: var(--text); }
+
+/* A two-way switch. The chosen side carries the raised fill, never the
+   accent (the accent is for data, not controls). */
+.segmented { display: inline-flex; gap: 2px; height: 44px; padding: 4px; border-radius: var(--radius-control); background: var(--surface); }
+.segmented button {
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--faint);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background var(--fast) ease, color var(--fast) ease;
+}
+.segmented button:hover { color: var(--text); }
+.segmented button.on { background: var(--raised); color: var(--text); }
+
+.yt-idle .empty { margin-top: 8px; }
+.yt-recent { margin-top: 8px; }
+.yt-recent-head { display: flex; align-items: baseline; gap: 4px; }
+.yt-recent-head .nav-heading { padding-left: 0; }
+.yt-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  height: 32px;
+  max-width: 280px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background var(--fast) ease, color var(--fast) ease;
+}
+.chip:hover { background: var(--surface-hover); color: var(--text); }
+
+/* A hit: the library card, plus a play disc on hover and actions that only
+   show on hover or focus, so a grid of 24 hits is not 24 white pills. */
+.hit .card-download { opacity: 0; transform: translateY(-3px); transition: opacity var(--fast) ease, transform var(--fast) var(--ease-out); }
+.hit:hover .card-download, .hit:focus-within .card-download, .hit .card-download:focus-visible { opacity: 1; transform: none; }
+/* The Playing badge shares the corner; hovering trades it for Download. */
+.hit.playing:hover .card-playing, .hit.playing:focus-within .card-playing { opacity: 0; }
+.hit .card-playing { transition: opacity var(--fast) ease; }
+.hit-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-left: 2px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.72);
+  color: #ffffff;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.88);
+  transition: opacity var(--fast) ease, transform var(--medium) var(--ease-out);
+  pointer-events: none;
+}
+.hit:hover .hit-play, .hit:focus-visible .hit-play { opacity: 1; transform: translate(-50%, -50%); }
+.hit.incoming .hit-play { display: none; }
+.thumb-duration.is-live { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; letter-spacing: 0.02em; }
+.live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: shimmer 1.6s ease-in-out infinite; }
+
+/* A playlist reads as a stack: two sheets peek out above its thumbnail. */
+.hit.is-playlist .thumb { overflow: visible; }
+.hit.is-playlist .thumb > img, .hit.is-playlist .thumb-placeholder { border-radius: var(--radius-thumb); }
+.hit.is-playlist .thumb > img { position: relative; z-index: 1; }
+.hit.is-playlist .thumb::before, .hit.is-playlist .thumb::after {
+  content: "";
+  position: absolute;
+  left: 7%;
+  right: 7%;
+  top: -5px;
+  height: 12px;
+  border-radius: 8px 8px 0 0;
+  background: var(--raised);
+  z-index: 0;
+}
+.hit.is-playlist .thumb::after { left: 14%; right: 14%; top: -9px; background: #1f1f1f; z-index: -1; }
+.hit.is-playlist .thumb > .thumb-duration, .hit.is-playlist .hit-play { z-index: 3; }
+.hit.is-playlist { margin-top: 9px; }
+/* The thumbnail cannot clip a zoom while the stack peeks out of it. */
+.hit.is-playlist:hover .thumb > img { transform: none; }
+
+/* While a search runs: the shape of the grid, breathing. */
+.card.skeleton { cursor: default; }
+.card.skeleton .thumb { animation: breathe 1.4s ease-in-out infinite; }
+.skeleton-line { height: 12px; margin: 12px 2px 0; border-radius: 6px; background: var(--surface); animation: breathe 1.4s ease-in-out infinite; }
+.skeleton-line.short { width: 55%; margin-top: 8px; }
+
+.yt-more { display: flex; flex-direction: column; align-items: center; gap: 10px; min-height: 64px; padding: 28px 0 8px; }
+.yt-more-status { display: inline-flex; align-items: center; gap: 10px; color: var(--faint); font-size: var(--fs-small); }
+
+.yt-failure { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; max-width: 70ch; margin: 32px 0; }
+.yt-failure.inline { align-items: center; margin: 0; text-align: center; }
+.yt-failure .err { margin: 0; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.yt-hint { margin: 0; color: var(--faint); font-size: 13px; }
+.yt-hint code { color: var(--text); font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; } /* taste-skill-ignore: a shell command */
+
+.yt-playlist { animation: rise var(--medium) var(--ease-out) both; }
+.yt-back { padding: 0; margin-bottom: 14px; text-decoration: none; font-size: 13px; }
+.yt-back:hover { text-decoration: underline; }
+.yt-playlist-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 24px; }
+.yt-playlist-title { margin: 0; font-size: var(--fs-title); font-weight: 500; line-height: 1.25; letter-spacing: -0.01em; }
+.yt-playlist-head select {
+  height: var(--control-height);
+  border: 0;
+  border-radius: var(--radius-control);
+  background-color: var(--surface);
+  color: var(--muted);
+  font-size: var(--fs-small);
+}
+.yt-playlist-head .primary { height: var(--control-height); font-size: 13px; }
+
+/* One spinner for the app: a ring with a bright arc. */
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-top-color: #ffffff;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Over the player's picture: resolving a stream, or why it stopped. */
+.vv-status {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--text);
+  font-size: 14px;
+  text-align: center;
+}
+.vv-status .spinner { width: 28px; height: 28px; border-width: 3px; }
+.player.mini .vv-status { gap: 8px; font-size: var(--fs-small); }
+.player.mini .vv-status .spinner { width: 20px; height: 20px; }
+.vv-problem { background: rgba(0, 0, 0, 0.78); }
+.vv-problem span { max-width: 52ch; line-height: 1.5; }
+.vv-problem button {
+  height: 32px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: #ffffff;
+  color: #000000;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .yt-search { flex-wrap: wrap; }
+  .yt-field { flex-basis: 100%; }
+}
+
 /* ---------------------------------------------------------------- motion */
 
 @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
@@ -1179,6 +1368,7 @@ button { cursor: pointer; }
 @keyframes player-in { from { opacity: 0; transform: scale(0.985); } to { opacity: 1; transform: none; } }
 @keyframes mini-in { from { opacity: 0; transform: translateY(16px) scale(0.96); } to { opacity: 1; transform: none; } }
 @keyframes panel-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+@keyframes spin { to { transform: rotate(360deg); } }
 @keyframes eq { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
 /* A live bar pulses gently, so a slow download still reads as alive. */
 @keyframes shimmer { 0%, 100% { opacity: 1; } 50% { opacity: 0.62; } }

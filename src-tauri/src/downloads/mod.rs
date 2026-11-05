@@ -98,10 +98,14 @@ impl DownloadManager {
     }
 
     /// Download what a pasted URL points to. `format` overrides the default.
-    pub async fn enqueue_url(&self, url: &str, format: Option<Format>) -> AppResult<EnqueueSummary> {
+    /// `from_search` refuses a live or upcoming video (the YouTube screen).
+    pub async fn enqueue_url(&self, url: &str, format: Option<Format>, from_search: bool) -> AppResult<EnqueueSummary> {
         let settings = self.settings().await;
         let url = url.trim();
-        let info = info::fetch(self.toolchain(), url, settings.cookies_path.as_deref()).await?;
+        let info = info::fetch(self.toolchain(), url, settings.cookies_path.as_deref(), None).await?;
+        if from_search {
+            enqueue::refuse_recording(&info)?;
+        }
         let _serialized = self.inner.enqueue_lock.lock().await;
         let plan = enqueue::plan(self.pool(), &info, url, format.unwrap_or(settings.default_format)).await?;
         let summary = EnqueueSummary {
@@ -250,8 +254,9 @@ impl DownloadManager {
     }
 }
 
-/// SIGTERM to a whole process group (the negative pid).
-fn terminate_group(pid: u32) {
+/// SIGTERM to a whole process group (the negative pid). Also used by
+/// `ytdlp::info::run` when a lookup times out.
+pub(crate) fn terminate_group(pid: u32) {
     let _ = std::process::Command::new("kill")
         .args(["-TERM", "--", &format!("-{pid}")])
         .status();

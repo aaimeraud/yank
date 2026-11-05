@@ -8,13 +8,16 @@ use crate::models::{EnqueueSummary, Format, QueueEntry, QueueStatus};
 
 /// Download whatever the URL points to: one video, or every entry of a
 /// playlist/channel. `format` overrides the default from Settings.
+/// `from_search` marks a hit of the YouTube screen, where a live or
+/// upcoming video is refused (ADR 0010); a pasted link may record a live.
 #[tauri::command]
 pub async fn enqueue_url(
     manager: Manager<'_>,
     url: String,
     format: Option<Format>,
+    from_search: Option<bool>,
 ) -> AppResult<EnqueueSummary> {
-    manager.enqueue_url(&url, format).await
+    manager.enqueue_url(&url, format, from_search.unwrap_or(false)).await
 }
 
 /// Download a library video: its file is missing or was never fetched, or its

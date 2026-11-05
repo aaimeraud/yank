@@ -10,8 +10,12 @@ import type {
   Format,
   ProgressEvent,
   QueueEntry,
+  SearchKind,
+  SearchPage,
   Settings,
+  Stream,
   ToolchainReport,
+  UrlInfo,
   Video,
 } from "./types";
 
@@ -36,8 +40,9 @@ export const api = {
   revealVideo: (videoId: string) => invoke<void>("reveal_video", { videoId }),
 
   // Downloads
-  enqueueUrl: (url: string, format: Format | null) =>
-    invoke<EnqueueSummary>("enqueue_url", { url, format }),
+  /** `fromSearch`: a hit from the YouTube screen; a live video is then refused (ADR 0010). */
+  enqueueUrl: (url: string, format: Format | null, fromSearch = false) =>
+    invoke<EnqueueSummary>("enqueue_url", { url, format, fromSearch }),
   downloadVideo: (videoId: string, format: Format | null = null) =>
     invoke<void>("download_video", { videoId, format }),
   listQueue: () => invoke<QueueEntry[]>("list_queue"),
@@ -50,6 +55,15 @@ export const api = {
   resumeAllDownloads: () => invoke<number>("resume_all_downloads"),
   retryFailedDownloads: () => invoke<number>("retry_failed_downloads"),
   downloadDiagnostics: (queueId: string) => invoke<string>("download_diagnostics", { queueId }),
+
+  // YouTube screen
+  /** One page (0-based) of results of one kind. */
+  searchYoutube: (query: string, kind: SearchKind, page: number) =>
+    invoke<SearchPage>("search_youtube", { query, kind, page }),
+  /** A playlist's videos, without queueing anything. */
+  inspectUrl: (url: string) => invoke<UrlInfo>("inspect_url", { url }),
+  /** Where to stream a video from; ask right before playing, never store. */
+  streamVideo: (url: string) => invoke<Stream>("stream_video", { url }),
 
   // Settings and system
   getSettings: () => invoke<Settings>("get_settings"),

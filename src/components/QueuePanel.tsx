@@ -20,6 +20,7 @@ interface Props {
  */
 export default function QueuePanel({ player, onClose, onPlay }: Props) {
   const { current, queue, upNext, history } = player;
+  if (player.stream) return <StreamQueue player={player} stream={player.stream} onClose={onClose} onPlay={onPlay} />;
   return (
     <aside className="queue-panel" aria-label="Queue">
       <header className="queue-panel-head">
@@ -64,6 +65,57 @@ export default function QueuePanel({ player, onClose, onPlay }: Props) {
             <ol className="queue-list">
               {history.slice(0, 20).map((video) => (
                 <Row key={video.id} video={video} faded onPlay={() => onPlay(video)} />
+              ))}
+            </ol>
+          </Section>
+        )}
+      </div>
+    </aside>
+  );
+}
+
+/**
+ * While streaming from the YouTube screen: the user's own queue first (it
+ * plays next, and playing it ends the session), then the hits the session
+ * was started from, in order.
+ */
+function StreamQueue({ player, stream, onClose, onPlay }: { player: Player; stream: NonNullable<Player["stream"]>; onClose: () => void; onPlay: (video: Video) => void }) {
+  const before = stream.items.slice(0, stream.index).map((item, index) => ({ item, index })).reverse();
+  const after = stream.items.slice(stream.index + 1).map((item, offset) => ({ item, index: stream.index + 1 + offset }));
+  return (
+    <aside className="queue-panel" aria-label="Queue">
+      <header className="queue-panel-head">
+        <h2>Queue</h2>
+        <button className="icon-button" onClick={onClose} aria-label="Close the queue" title="Close (Q)">
+          <CloseIcon size={12} />
+        </button>
+      </header>
+      <div className="queue-panel-body">
+        <Section title={player.source.streaming ? "Now streaming" : "Now playing"}>
+          <Row video={stream.items[stream.index].video} playing />
+        </Section>
+        {player.queue.length > 0 && (
+          <Section
+            title="Next in your queue"
+            action={<button className="link-button" onClick={player.clearQueue}>Clear</button>}
+          >
+            <Reorderable videos={player.queue} player={player} onPlay={onPlay} />
+          </Section>
+        )}
+        {after.length > 0 && (
+          <Section title={`Next from ${stream.label}`}>
+            <ol className="queue-list">
+              {after.map(({ item, index }) => (
+                <Row key={`${item.video.id}-${index}`} video={item.video} onPlay={() => player.streamIndex(index)} />
+              ))}
+            </ol>
+          </Section>
+        )}
+        {before.length > 0 && (
+          <Section title="Previously streamed">
+            <ol className="queue-list">
+              {before.map(({ item, index }) => (
+                <Row key={`${item.video.id}-${index}`} video={item.video} faded onPlay={() => player.streamIndex(index)} />
               ))}
             </ol>
           </Section>

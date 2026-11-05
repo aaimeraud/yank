@@ -155,6 +155,10 @@ pub struct Metadata {
     pub webpage_url: Option<String>,
     /// 1-based position in the playlist, or 1 for a single video.
     pub index: i64,
+    /// "is_live", "is_upcoming"... as yt-dlp reports it. A playlist download
+    /// leaves live and upcoming entries out (`downloads::enqueue`).
+    #[serde(default)]
+    pub live_status: Option<String>,
 }
 
 /// What a pasted URL turned out to be.
@@ -213,4 +217,50 @@ pub struct ToolchainReport {
     pub ytdlp_version: Option<String>,
     pub ffmpeg_path: Option<String>,
     pub deno_path: Option<String>,
+}
+
+/// What a YouTube search lists: videos or playlists. YouTube's own filter,
+/// so each page holds only one kind.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum SearchKind {
+    Video,
+    Playlist,
+}
+
+/// One search hit. `id` is the YouTube id (a video id is also the library's
+/// `Video.id`, which is how the UI marks hits already downloaded).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SearchResult {
+    pub kind: SearchKind,
+    pub id: String,
+    pub title: String,
+    /// A watch URL or a playlist URL, ready for `enqueue_url`.
+    pub url: String,
+    pub channel: Option<String>,
+    /// Seconds. None for live streams and playlists.
+    pub duration: Option<i64>,
+    pub view_count: Option<i64>,
+    /// A web URL on i.ytimg.com, never a local path.
+    pub thumbnail: Option<String>,
+    /// "is_live", "is_upcoming", "was_live" or None, as yt-dlp reports it.
+    pub live_status: Option<String>,
+}
+
+/// One page of search results.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SearchPage {
+    pub results: Vec<SearchResult>,
+    /// False once YouTube returned fewer results than asked for.
+    pub has_more: bool,
+}
+
+/// How to stream a video without downloading it (ADR 0010).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Stream {
+    /// An HLS master playlist (WKWebView plays it natively), or a direct
+    /// file URL when the site offers no HLS.
+    pub url: String,
+    pub is_hls: bool,
+    pub is_live: bool,
 }

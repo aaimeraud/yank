@@ -1,6 +1,6 @@
 [package]
 name = "yank"
-version = "0.1.2"
+version = "0.1.3"
 description = "Desktop front end for yt-dlp: download videos and playlists, then watch them locally"
 authors = ["Daniel F."]
 edition = "2024"

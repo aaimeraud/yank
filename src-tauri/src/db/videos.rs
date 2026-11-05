@@ -111,7 +111,9 @@ pub async fn update_playback(
     position: i64,
     watched: bool,
 ) -> AppResult<()> {
-    sqlx::query("UPDATE videos SET last_position = ?, watched = ? WHERE id = ?")
+    // Watched is one-way: a replay starts at 0 and its first saves are below
+    // 90%, which must not take the mark away.
+    sqlx::query("UPDATE videos SET last_position = ?, watched = watched OR ? WHERE id = ?")
         .bind(position.max(0))
         .bind(watched)
         .bind(id)
@@ -383,5 +385,16 @@ mod tests {
         update_playback(&pool, "v1", -5, true).await.unwrap();
         let row = get(&pool, "v1").await.unwrap();
         assert_eq!((row.last_position, row.watched), (0, true));
+    }
+
+    #[tokio::test]
+    async fn rewatching_keeps_the_watched_mark() {
+        let pool = test_pool().await;
+        video(&pool, "v1", None).await;
+        update_playback(&pool, "v1", 95, true).await.unwrap();
+        // Replaying starts at 0, and the first save reports "not at 90% yet".
+        update_playback(&pool, "v1", 5, false).await.unwrap();
+        let row = get(&pool, "v1").await.unwrap();
+        assert_eq!((row.last_position, row.watched), (5, true));
     }
 }

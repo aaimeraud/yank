@@ -3,6 +3,7 @@ import { api } from "../api";
 import { ALL, UNFILED, filterVideos, folderTitle } from "../lib/libraryFilter";
 import { DEFAULT_QUERY, refineVideos, type LibraryQuery } from "../lib/libraryView";
 import { attempt, succeeds } from "../lib/notify";
+import { patchPlayback as applyPlayback } from "../lib/playback";
 import type { Folder, Video } from "../types";
 
 /**
@@ -66,13 +67,11 @@ export function useLibrary() {
 
   /** Apply a saved playback position locally, without reloading the library. */
   const patchPlayback = useCallback((id: string, position: number, watched: boolean) => {
-    setVideos((current) =>
-      current.map((video) =>
-        video.id === id && (video.last_position !== position || video.watched !== watched)
-          ? { ...video, last_position: position, watched }
-          : video,
-      ),
-    );
+    setVideos((current) => {
+      const next = current.map((video) => (video.id === id ? applyPlayback(video, position, watched) : video));
+      // Nothing changed: keep the array, so the grid does not re-render.
+      return next.every((video, i) => video === current[i]) ? current : next;
+    });
   }, []);
 
   return {

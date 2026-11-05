@@ -1,7 +1,8 @@
 #!/bin/sh
 # Compile src-tauri/icons/yank.icon (an Icon Composer document) into the
 # asset catalog macOS reads for the app icon. The catalog carries the light,
-# dark and tinted appearances, so the Dock icon follows the system theme;
+# dark and tinted appearances, so the Dock icon follows the icon style picked in
+# System Settings > Appearance (not light/dark mode itself);
 # icon.icns stays in the bundle as the fallback for older systems.
 #
 # Runs as Tauri's beforeBundleCommand. Output is a build product under

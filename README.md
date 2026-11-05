@@ -4,7 +4,7 @@
   <img src="docs/assets/icon-dark.png" width="128" height="128" alt="Yank's app icon in dark mode: a pink script y on a near-black tile">
 </p>
 
-<p align="center"><sub>Light and dark, made in Icon Composer. The Dock icon follows your system appearance.</sub></p>
+<p align="center"><sub>Default and dark, made in Icon Composer. Like Apple's apps, the Dock icon follows the icon style chosen in System Settings › Appearance › Icon &amp; widget style.</sub></p>
 
 # Yank
 

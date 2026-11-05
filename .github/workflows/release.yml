@@ -43,6 +43,9 @@ jobs:
         with:
           workspaces: src-tauri
       - uses: astral-sh/setup-uv@v10.3.0
+        with:
+          # The scripts are stdlib only: nothing to cache.
+          enable-cache: false
       - run: bun install --frozen-lockfile
       - name: Tag matches the app version
         run: |

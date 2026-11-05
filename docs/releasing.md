@@ -31,6 +31,14 @@ Pushing the `vX.Y.Z` tag runs `.github/workflows/release.yml`: it checks the
 tag matches the app version, builds the app for Apple Silicon and Intel, and
 publishes a GitHub release with that version's changelog section as notes.
 
+Push the tag together with `main` (`git push origin main vX.Y.Z`) and do not
+push to `main` again until the release job is done. With only `contents: write`,
+the workflow token gets a 403 ("Resource not accessible by integration") when it
+creates a release for a tag that is no longer the head of `main` and whose
+workflow files differ from it. If that happens, create the release yourself
+(`gh release create vX.Y.Z --verify-tag --notes-file ...`) and re-run the failed
+jobs: the action then only uploads the files.
+
 The build is **unsigned**. On first launch macOS refuses it; right-click the
 app, choose Open, then Open again. Signing and notarization need an Apple
 Developer ID and are not set up.

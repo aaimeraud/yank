@@ -363,3 +363,16 @@ async fn download_on_a_paused_video_continues_that_row() {
     assert_eq!(rows.len(), 1, "no second row for the same video");
     assert_eq!(rows[0].format.as_deref(), Some("audio"), "the paused row keeps its format");
 }
+
+#[tokio::test]
+async fn a_url_without_a_format_uses_the_settings_default() {
+    let h = Harness::new("default-format", 0, "").await;
+    crate::settings::set(h.manager.pool(), crate::settings::KEY_FORMAT, "audio").await.unwrap();
+
+    // The URL box sends no format unless the user picked one in it.
+    h.manager.enqueue_url("https://example.com/list", None).await.unwrap();
+
+    let rows = queue::list(h.manager.pool()).await.unwrap();
+    assert_eq!(rows.len(), 2);
+    assert!(rows.iter().all(|row| row.format.as_deref() == Some("audio")), "{rows:?}");
+}

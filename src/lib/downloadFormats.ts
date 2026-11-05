@@ -8,3 +8,13 @@ export const FORMAT_OPTIONS: { value: Format; label: string; short: string }[] =
   { value: "audio", label: "Audio only · M4A", short: "Audio only" },
   { value: "original", label: "Original · best available", short: "Best quality" },
 ];
+
+/**
+ * The URL box's format: what it sends and what its select shows. It sends
+ * only an explicit pick; null lets the backend apply the Settings default
+ * (ADR 0006), which is right even before the UI has loaded the settings.
+ * Until then the select shows a placeholder ("") instead of guessing.
+ */
+export function urlBoxFormat(picked: Format | null, settingsDefault: Format | null) {
+  return { send: picked, shown: picked ?? settingsDefault ?? "" };
+}

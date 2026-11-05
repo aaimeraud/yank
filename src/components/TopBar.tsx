@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Format, QueueEntry } from "../types";
 import { looksLikeUrl } from "../lib/enqueue";
-import { FORMAT_OPTIONS } from "../lib/downloadFormats";
+import { FORMAT_OPTIONS, urlBoxFormat } from "../lib/downloadFormats";
 import { intakeSummary } from "../lib/queueGroups";
 import Brand from "./Brand";
 import SourceIcon from "./SourceIcon";
@@ -9,9 +9,15 @@ import { LinkIcon } from "./icons";
 
 interface Props {
   queue: QueueEntry[];
-  defaultFormat: Format;
-  /** Resolves to true when the URL was accepted (the field then clears). */
-  onSubmit: (url: string, format: Format) => Promise<boolean>;
+  /** From Settings; null until they have loaded. */
+  defaultFormat: Format | null;
+  /**
+   * Resolves to true when the URL was accepted (the field then clears).
+   * `format` is null unless the user picked one here: the backend applies
+   * the Settings default itself (ADR 0006), so a paste made before the
+   * settings load cannot fall back to the wrong format.
+   */
+  onSubmit: (url: string, format: Format | null) => Promise<boolean>;
   onOpenDownloads: () => void;
 }
 
@@ -36,12 +42,13 @@ function UrlBox({ defaultFormat, onSubmit }: Pick<Props, "defaultFormat" | "onSu
   const [format, setFormat] = useState<Format | null>(null);
   const [busy, setBusy] = useState(false);
   const valid = looksLikeUrl(url);
+  const shownFormat = urlBoxFormat(format, defaultFormat);
 
   const submit = async () => {
     if (!valid || busy) return;
     setBusy(true);
     try {
-      if (await onSubmit(url.trim(), format ?? defaultFormat)) setUrl("");
+      if (await onSubmit(url.trim(), shownFormat.send)) setUrl("");
     } finally {
       setBusy(false);
     }
@@ -68,10 +75,15 @@ function UrlBox({ defaultFormat, onSubmit }: Pick<Props, "defaultFormat" | "onSu
         />
         <select
           aria-label="Format"
-          value={format ?? defaultFormat}
+          value={shownFormat.shown}
           onChange={(event) => setFormat(event.target.value as Format)}
           disabled={busy}
         >
+          {shownFormat.shown === "" && (
+            <option value="" disabled>
+              Default
+            </option>
+          )}
           {FORMAT_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
               {option.short}

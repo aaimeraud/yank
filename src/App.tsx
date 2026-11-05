@@ -59,7 +59,7 @@ export default function App() {
     if (!(await player.playVideo(video))) notify.error("That file is gone. The library has been updated.");
   };
 
-  const submitUrl = async (url: string, format: Format) => {
+  const submitUrl = async (url: string, format: Format | null) => {
     const summary = await attempt(() => api.enqueueUrl(url, format));
     if (!summary) return false;
     notify.info(enqueueMessage(summary));
@@ -131,7 +131,7 @@ export default function App() {
     <div className={classes.join(" ")}>
       <TopBar
         queue={downloads.queue}
-        defaultFormat={settings.settings?.default_format ?? "video"}
+        defaultFormat={settings.settings?.default_format ?? null}
         onSubmit={submitUrl}
         onOpenDownloads={() => setView("downloads")}
       />

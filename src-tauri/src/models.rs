@@ -40,7 +40,8 @@ pub struct Folder {
     pub video_count: i64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+/// Written by enqueue, never sent to the UI (so no twin in `src/types.ts`).
+#[derive(Debug, Clone)]
 pub struct Playlist {
     pub id: String,
     pub title: String,

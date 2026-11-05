@@ -1,12 +1,9 @@
 //! Commands for the Library view: videos, folders, playback state.
 
-use crate::db::{folders, playlists, videos};
-use crate::downloads::DownloadManager;
+use super::Manager;
+use crate::db::{folders, videos};
 use crate::error::{AppError, AppResult};
-use crate::models::{Folder, Playlist, Video};
-use tauri::State;
-
-type Manager<'a> = State<'a, DownloadManager>;
+use crate::models::{Folder, Video};
 
 #[tauri::command]
 pub async fn list_videos(manager: Manager<'_>) -> AppResult<Vec<Video>> {
@@ -16,11 +13,6 @@ pub async fn list_videos(manager: Manager<'_>) -> AppResult<Vec<Video>> {
 #[tauri::command]
 pub async fn list_folders(manager: Manager<'_>) -> AppResult<Vec<Folder>> {
     folders::list(manager.pool()).await
-}
-
-#[tauri::command]
-pub async fn list_playlists(manager: Manager<'_>) -> AppResult<Vec<Playlist>> {
-    playlists::list(manager.pool()).await
 }
 
 #[tauri::command]

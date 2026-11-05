@@ -152,13 +152,7 @@ pub async fn move_to_folder(
 /// a yt-dlp process nobody can cancel.
 pub async fn remove(pool: &SqlitePool, video_id: &str, delete_file: bool) -> AppResult<()> {
     let video = get(pool, video_id).await?;
-    let busy: Option<i64> = sqlx::query_scalar(
-        "SELECT 1 FROM queue_items WHERE video_id = ? AND status IN ('queued', 'downloading')",
-    )
-    .bind(video_id)
-    .fetch_optional(pool)
-    .await?;
-    if busy.is_some() {
+    if super::queue::is_running(pool, video_id).await? {
         return Err(AppError::user(
             "Cancel this download in Downloads before removing the video.",
         ));

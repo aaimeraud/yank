@@ -21,7 +21,7 @@ use crate::db::{queue, queue::Job};
 use crate::error::AppResult;
 use crate::models::{EnqueueSummary, Format, ProgressEvent, QueueStatus};
 use crate::settings::Settings;
-use crate::ytdlp::{info, Toolchain};
+use crate::ytdlp::{info, toolchain, Toolchain};
 use sqlx::SqlitePool;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -48,6 +48,9 @@ struct Inner {
     /// Held while a URL is turned into rows, so two overlapping playlists
     /// pasted back to back cannot both queue the same video.
     enqueue_lock: tokio::sync::Mutex<()>,
+    /// `yt-dlp --version`, asked once: yt-dlp runs with `--no-update`, so it
+    /// cannot change while the app runs, and each ask starts Python.
+    ytdlp_version: tokio::sync::OnceCell<Option<String>>,
     emit: Emit,
 }
 
@@ -68,6 +71,7 @@ impl DownloadManager {
                 claims: Mutex::default(),
                 pids: Mutex::default(),
                 enqueue_lock: tokio::sync::Mutex::new(()),
+                ytdlp_version: tokio::sync::OnceCell::new(),
                 emit,
             }),
         }
@@ -79,6 +83,14 @@ impl DownloadManager {
 
     pub fn toolchain(&self) -> &Toolchain {
         &self.inner.toolchain
+    }
+
+    pub async fn ytdlp_version(&self) -> Option<String> {
+        self.inner
+            .ytdlp_version
+            .get_or_init(|| toolchain::ytdlp_version(self.toolchain()))
+            .await
+            .clone()
     }
 
     pub async fn settings(&self) -> Settings {
@@ -141,9 +153,7 @@ impl DownloadManager {
         let job = queue::requeue(self.pool(), queue_id, fallback).await?;
         // A row whose worker is still alive (waiting for a slot, or about to
         // exit after a kill) is picked up by that worker; see worker::run.
-        if self.claim(queue_id) {
-            tokio::spawn(worker::run(self.clone(), job));
-        }
+        self.spawn(job);
         Ok(())
     }
 
@@ -182,7 +192,7 @@ impl DownloadManager {
         self.inner.gate.set_limit(limit);
     }
 
-    /// Start a worker for a freshly inserted row.
+    /// Start a worker for a row unless one is already alive for it.
     fn spawn(&self, job: Job) {
         if self.claim(&job.queue_id) {
             tokio::spawn(worker::run(self.clone(), job));

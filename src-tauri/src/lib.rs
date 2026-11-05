@@ -51,7 +51,6 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::library::list_videos,
             commands::library::list_folders,
-            commands::library::list_playlists,
             commands::library::create_folder,
             commands::library::rename_folder,
             commands::library::delete_folder,

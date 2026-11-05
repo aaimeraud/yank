@@ -7,3 +7,6 @@
 pub mod downloads;
 pub mod library;
 pub mod system;
+
+/// What every command takes to reach the queue, the database and the tools.
+type Manager<'a> = tauri::State<'a, crate::downloads::DownloadManager>;

@@ -1,14 +1,15 @@
 //! Asking yt-dlp what a URL points to, and turning its JSON into [`UrlInfo`].
 
 use super::args::info_args;
+use super::output::NO_REASON;
 use super::toolchain::Toolchain;
 use crate::error::{AppError, AppResult};
 use crate::models::{Metadata, UrlInfo};
 use serde_json::Value;
 
 pub async fn fetch(toolchain: &Toolchain, url: &str, cookies: Option<&str>) -> AppResult<UrlInfo> {
-    let output = tokio::process::Command::new(toolchain.ytdlp_program())
-        .args(toolchain.common_args())
+    let output = toolchain
+        .command()
         .args(info_args(url, cookies))
         .output()
         .await
@@ -30,7 +31,7 @@ pub fn error_summary(stderr: &str) -> String {
         .find(|line| line.starts_with("ERROR:"))
         .or_else(|| lines.last())
         .map(|line| line.to_string())
-        .unwrap_or_else(|| "yt-dlp failed without saying why.".to_string())
+        .unwrap_or_else(|| NO_REASON.to_string())
 }
 
 /// `--dump-single-json` prints one object: a video, or a playlist whose
@@ -164,7 +165,7 @@ mod tests {
         let stderr = "WARNING: something\nERROR: [youtube] abc: Private video\n\n";
         assert_eq!(error_summary(stderr), "ERROR: [youtube] abc: Private video");
         assert_eq!(error_summary("just one line"), "just one line");
-        assert_eq!(error_summary(""), "yt-dlp failed without saying why.");
+        assert_eq!(error_summary(""), NO_REASON);
     }
 
     #[tokio::test]

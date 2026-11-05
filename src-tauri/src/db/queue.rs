@@ -21,6 +21,8 @@ pub struct Job {
 
 /// Statuses that still own a worker (or will get one).
 const ACTIVE: &str = "('queued', 'downloading', 'paused')";
+/// Statuses with a yt-dlp process running or about to start.
+const RUNNING: &str = "('queued', 'downloading')";
 const FINISHED: &str = "('done', 'failed', 'cancelled')";
 
 /// Create a queued row and return the job to run.
@@ -44,26 +46,27 @@ pub async fn insert(pool: &SqlitePool, video_id: &str, url: &str, format: Format
     })
 }
 
+/// The columns of a [`QueueEntry`], joined from its video and playlist.
+const ENTRY_SELECT: &str =
+    "SELECT q.id, q.video_id, q.status, q.progress, q.speed, q.eta, q.error, q.created_at, \
+            q.format, v.title, v.url, v.source, v.playlist_id, \
+            p.title AS playlist_title, v.playlist_index \
+     FROM queue_items q \
+     JOIN videos v ON v.id = q.video_id \
+     LEFT JOIN playlists p ON p.id = v.playlist_id";
+
 /// Rows for the Downloads view, oldest first.
 pub async fn list(pool: &SqlitePool) -> AppResult<Vec<QueueEntry>> {
-    Ok(sqlx::query_as(
-        "SELECT q.id, q.video_id, q.status, q.progress, q.speed, q.eta, q.error, q.created_at, \
-                q.format, v.title, v.url, v.source, v.playlist_id, \
-                p.title AS playlist_title, v.playlist_index \
-         FROM queue_items q \
-         JOIN videos v ON v.id = q.video_id \
-         LEFT JOIN playlists p ON p.id = v.playlist_id \
-         ORDER BY q.created_at, q.rowid",
-    )
-    .fetch_all(pool)
-    .await?)
+    let sql = format!("{ENTRY_SELECT} ORDER BY q.created_at, q.rowid");
+    Ok(sqlx::query_as(&sql).fetch_all(pool).await?)
 }
 
 pub async fn get(pool: &SqlitePool, queue_id: &str) -> AppResult<QueueEntry> {
-    list(pool)
+    let sql = format!("{ENTRY_SELECT} WHERE q.id = ?");
+    sqlx::query_as(&sql)
+        .bind(queue_id)
+        .fetch_optional(pool)
         .await?
-        .into_iter()
-        .find(|entry| entry.id == queue_id)
         .ok_or_else(|| AppError::user("That download no longer exists."))
 }
 
@@ -97,6 +100,16 @@ pub async fn has_active(pool: &SqlitePool, video_id: &str) -> AppResult<bool> {
     Ok(found.is_some())
 }
 
+/// True while a yt-dlp process for this video is running or about to start.
+pub async fn is_running(pool: &SqlitePool, video_id: &str) -> AppResult<bool> {
+    let sql = format!("SELECT 1 FROM queue_items WHERE video_id = ? AND status IN {RUNNING}");
+    let found: Option<i64> = sqlx::query_scalar(&sql)
+        .bind(video_id)
+        .fetch_optional(pool)
+        .await?;
+    Ok(found.is_some())
+}
+
 /// Write a new status and clear the live counters. `from` limits which
 /// statuses may be overwritten, so a late pause cannot undo a "done".
 /// Returns false when the row was not in one of those statuses.
@@ -106,12 +119,15 @@ pub async fn transition(
     from: &[QueueStatus],
     to: QueueStatus,
 ) -> AppResult<bool> {
-    let allowed = from.iter().map(|s| format!("'{}'", s.as_str())).collect::<Vec<_>>();
     let sql = format!(
         "UPDATE queue_items SET status = ?, speed = NULL, eta = NULL WHERE id = ? AND status IN ({})",
-        allowed.join(",")
+        super::placeholders(from.len())
     );
-    let result = sqlx::query(&sql).bind(to).bind(queue_id).execute(pool).await?;
+    let mut query = sqlx::query(&sql).bind(to).bind(queue_id);
+    for status in from {
+        query = query.bind(*status);
+    }
+    let result = query.execute(pool).await?;
     Ok(result.rows_affected() > 0)
 }
 
@@ -256,12 +272,10 @@ async fn delete_if_never_downloaded(pool: &SqlitePool, video_id: &str) -> AppRes
 /// A download running when the app quit cannot still be running. Park it as
 /// paused so the user decides when it continues.
 pub async fn recover_interrupted(pool: &SqlitePool) -> AppResult<()> {
-    sqlx::query(
-        "UPDATE queue_items SET status = 'paused', speed = NULL, eta = NULL \
-         WHERE status IN ('queued', 'downloading')",
-    )
-    .execute(pool)
-    .await?;
+    let sql = format!(
+        "UPDATE queue_items SET status = 'paused', speed = NULL, eta = NULL WHERE status IN {RUNNING}"
+    );
+    sqlx::query(&sql).execute(pool).await?;
     Ok(())
 }
 
@@ -282,6 +296,18 @@ mod tests {
         assert_eq!(entry.title, "Video v1");
         assert_eq!(entry.format.as_deref(), Some("audio"));
         assert!(has_active(&pool, "v1").await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn running_means_queued_or_downloading_not_paused() {
+        let pool = test_pool().await;
+        video(&pool, "v1", None).await;
+        let job = insert(&pool, "v1", "https://example.com/v1", Format::Video).await.unwrap();
+        assert!(is_running(&pool, "v1").await.unwrap());
+        transition(&pool, &job.queue_id, &[Queued], Paused).await.unwrap();
+        assert!(!is_running(&pool, "v1").await.unwrap());
+        assert!(has_active(&pool, "v1").await.unwrap(), "paused still owns the video");
+        assert!(get(&pool, "missing").await.is_err());
     }
 
     #[tokio::test]

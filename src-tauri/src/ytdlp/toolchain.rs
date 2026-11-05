@@ -35,6 +35,15 @@ impl Toolchain {
         self.ytdlp.clone().unwrap_or_else(|| PathBuf::from("yt-dlp"))
     }
 
+    /// A yt-dlp command with [`Self::common_args`] already applied. Every
+    /// download and info call goes through this, so none can forget the
+    /// ffmpeg and deno pinning.
+    pub fn command(&self) -> tokio::process::Command {
+        let mut command = tokio::process::Command::new(self.ytdlp_program());
+        command.args(self.common_args());
+        command
+    }
+
     /// Arguments every yt-dlp invocation gets, whatever it is for.
     pub fn common_args(&self) -> Vec<String> {
         let mut args = vec!["--no-update".to_string()];

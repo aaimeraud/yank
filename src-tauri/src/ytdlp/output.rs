@@ -83,6 +83,9 @@ pub fn is_transient_failure(stderr: &str) -> bool {
     TRANSIENT.iter().any(|needle| stderr.contains(needle))
 }
 
+/// Shown when yt-dlp fails with an empty stderr.
+pub const NO_REASON: &str = "yt-dlp failed without saying why.";
+
 /// How many stderr lines a failed download keeps for diagnostics.
 pub const STDERR_TAIL_LINES: usize = 20;
 

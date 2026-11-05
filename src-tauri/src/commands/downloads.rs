@@ -1,12 +1,10 @@
 //! Commands for adding downloads and controlling the queue.
 
+use super::Manager;
 use crate::db::queue;
-use crate::downloads::{diagnostics, DownloadManager};
+use crate::downloads::diagnostics;
 use crate::error::AppResult;
 use crate::models::{EnqueueSummary, Format, QueueEntry, QueueStatus};
-use tauri::State;
-
-type Manager<'a> = State<'a, DownloadManager>;
 
 /// Download whatever the URL points to: one video, or every entry of a
 /// playlist/channel. `format` overrides the default from Settings.
@@ -83,6 +81,6 @@ pub async fn download_diagnostics(
     queue_id: String,
 ) -> AppResult<String> {
     let entry = queue::get(manager.pool(), &queue_id).await?;
-    let tools = super::system::toolchain_report(manager.toolchain()).await;
+    let tools = super::system::toolchain_report(&manager).await;
     Ok(diagnostics::report(&entry, &tools, &app.package_info().version.to_string()))
 }

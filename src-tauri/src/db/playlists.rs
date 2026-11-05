@@ -6,14 +6,6 @@ use crate::error::AppResult;
 use crate::models::Playlist;
 use sqlx::SqlitePool;
 
-pub async fn list(pool: &SqlitePool) -> AppResult<Vec<Playlist>> {
-    Ok(sqlx::query_as(
-        "SELECT id, title, source, url, thumbnail_path FROM playlists ORDER BY title",
-    )
-    .fetch_all(pool)
-    .await?)
-}
-
 /// Insert the playlist, or refresh the row that already has its URL and
 /// return that row's id. Re-adding a playlist must reuse its row; a renamed
 /// playlist files new downloads under the name the user sees today.
@@ -147,7 +139,8 @@ mod tests {
         renamed.title = "Renamed".to_string();
         assert_eq!(upsert(&pool, &renamed).await.unwrap(), "p1");
         assert_eq!(count(&pool, "playlists").await, 1);
-        assert_eq!(list(&pool).await.unwrap()[0].title, "Renamed");
+        let title: String = sqlx::query_scalar("SELECT title FROM playlists").fetch_one(&pool).await.unwrap();
+        assert_eq!(title, "Renamed");
     }
 
     #[test]

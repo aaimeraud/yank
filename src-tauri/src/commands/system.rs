@@ -5,12 +5,11 @@ use crate::downloads::DownloadManager;
 use crate::error::{AppError, AppResult};
 use crate::models::ToolchainReport;
 use crate::settings::{self, Settings};
-use crate::ytdlp::{toolchain, Toolchain};
-use tauri::{Manager as _, State};
+use tauri::Manager as _;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 
-type Manager<'a> = State<'a, DownloadManager>;
+use super::Manager;
 
 #[tauri::command]
 pub async fn get_settings(manager: Manager<'_>) -> AppResult<Settings> {
@@ -48,14 +47,15 @@ pub async fn pick_cookies_file(app: tauri::AppHandle) -> Option<String> {
 
 #[tauri::command]
 pub async fn toolchain_info(manager: Manager<'_>) -> AppResult<ToolchainReport> {
-    Ok(toolchain_report(manager.toolchain()).await)
+    Ok(toolchain_report(&manager).await)
 }
 
-pub async fn toolchain_report(tools: &Toolchain) -> ToolchainReport {
+pub async fn toolchain_report(manager: &DownloadManager) -> ToolchainReport {
+    let tools = manager.toolchain();
     let path = |p: &Option<std::path::PathBuf>| p.as_ref().map(|p| p.display().to_string());
     ToolchainReport {
         ytdlp_path: path(&tools.ytdlp),
-        ytdlp_version: toolchain::ytdlp_version(tools).await,
+        ytdlp_version: manager.ytdlp_version().await,
         ffmpeg_path: path(&tools.ffmpeg),
         deno_path: path(&tools.deno),
     }

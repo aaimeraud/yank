@@ -10,6 +10,7 @@ use super::DownloadManager;
 use crate::db::{folders, queue, queue::Job, videos};
 use crate::models::{ProgressEvent, QueueStatus};
 use crate::settings::Settings;
+use crate::ytdlp::output::NO_REASON;
 use crate::ytdlp::args::DownloadRequest;
 use crate::ytdlp::output::is_transient_failure;
 use std::time::Duration;
@@ -45,7 +46,7 @@ pub fn decide(status: Option<QueueStatus>, outcome: &Outcome, attempt: u32) -> D
         return Decision::Retry(retry_delay(attempt));
     }
     if outcome.stderr_tail.trim().is_empty() {
-        Decision::Failed("yt-dlp failed without saying why.".into())
+        Decision::Failed(NO_REASON.into())
     } else {
         Decision::Failed(outcome.stderr_tail.clone())
     }
@@ -213,7 +214,7 @@ mod tests {
         assert!(matches!(decide(Some(Downloading), &bad, 1), Decision::Failed(m) if m.contains("Unsupported")));
         assert_eq!(
             decide(Some(Downloading), &failed("  "), 1),
-            Decision::Failed("yt-dlp failed without saying why.".into())
+            Decision::Failed(NO_REASON.into())
         );
     }
 

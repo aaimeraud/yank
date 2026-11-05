@@ -44,6 +44,7 @@
       "icons/icon.ico"
     ],
     "macOS": {
+      "signingIdentity": "-",
       "files": { "Resources/Assets.car": "target/icon/Assets.car" }
     }
   }

@@ -39,9 +39,18 @@ workflow files differ from it. If that happens, create the release yourself
 (`gh release create vX.Y.Z --verify-tag --notes-file ...`) and re-run the failed
 jobs: the action then only uploads the files.
 
-The build is **unsigned**. On first launch macOS refuses it; right-click the
-app, choose Open, then Open again. Signing and notarization need an Apple
-Developer ID and are not set up.
+The build is **ad-hoc signed** (`signingIdentity: "-"` in `tauri.conf.json`),
+not notarized. Ad-hoc signing seals the whole bundle; without it the app only
+carries the linker's signature on its binary, macOS sees an invalid bundle,
+and a downloaded copy is reported as damaged with no way to open it (v0.1.0 to
+v0.1.2). Ad-hoc signed, the first launch is blocked with "Apple could not
+verify…" and System Settings › Privacy & Security › Open Anyway lets it run;
+the README says so. Notarization, which removes the prompt, needs an Apple
+Developer ID and is not set up.
+
+Check a build before tagging: `codesign --verify --deep --strict` must pass on
+`src-tauri/target/release/bundle/macos/Yank.app`. The release workflow checks
+it too.
 
 ## Checks
 

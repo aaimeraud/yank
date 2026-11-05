@@ -1,6 +1,6 @@
 name: Release
 
-# Push a tag like v0.1.0 (see docs/releasing.md). Builds the unsigned macOS
+# Push a tag like v0.1.0 (see docs/releasing.md). Builds the ad-hoc signed macOS
 # app for Apple Silicon and Intel and publishes a GitHub release whose notes
 # are that version's section of the changelog.
 
@@ -57,7 +57,19 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: Yank ${{ github.ref_name }}
-          releaseBody: ${{ needs.notes.outputs.body }}
+          releaseBody: |
+            ${{ needs.notes.outputs.body }}
+
+            ## Install
+
+            Download the `.dmg` for your Mac (`aarch64` for Apple Silicon, `x64` for Intel), drag Yank to Applications, then `brew install yt-dlp ffmpeg deno`.
+
+            Yank is not notarized, so macOS blocks the first launch. Open it once, then go to System Settings › Privacy & Security and click **Open Anyway**. Or run `xattr -dr com.apple.quarantine /Applications/Yank.app` in Terminal.
           releaseDraft: false
           prerelease: false
           args: --target ${{ matrix.target }}
+      # An unsealed bundle opens on the build machine but is "damaged" once
+      # downloaded (v0.1.0-v0.1.2). Fail the release if the signature is not
+      # valid for the whole bundle.
+      - name: Bundle signature is valid
+        run: codesign --verify --deep --strict --verbose=2 "src-tauri/target/${{ matrix.target }}/release/bundle/macos/Yank.app"

@@ -20,8 +20,16 @@ and Yank downloads it, files it in a library, and plays it in its own player.
 
 Download the `.dmg` for your Mac (Apple Silicon `aarch64`, Intel `x64`) from
 [Releases](https://github.com/aaimeraud/yank/releases), drag Yank to
-Applications, and install the tools below. The app is not signed: the first
-time, right-click it, choose Open, then Open again.
+Applications, and install the tools below.
+
+Yank is not notarized by Apple, so the first launch is blocked. Open it once,
+dismiss the warning, then go to System Settings › Privacy & Security and click
+**Open Anyway** next to "Yank was blocked" (right-click › Open no longer works
+on recent macOS). Or, in Terminal:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Yank.app
+```
 
 ## Requirements
 

@@ -45,6 +45,7 @@ export default function ResultCard({ hit, index, state, playing, actions }: Prop
   };
 
   const classes = ["card", "hit"];
+  if (menuOpen) classes.push("menu-open");
   if (playlist) classes.push("is-playlist");
   if (playing) classes.push("playing");
   if (state.kind === "downloading") classes.push("incoming");

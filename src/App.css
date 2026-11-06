@@ -425,9 +425,17 @@ button { cursor: pointer; }
   border-radius: var(--radius-card);
   outline: none;
   cursor: pointer;
-  animation: rise var(--slow) var(--ease-out) both;
+  /* `backwards`, not `both`: a filled animation leaves a transform on the
+     card, which makes every card its own stacking context. An open menu is
+     absolutely positioned inside the card, so it would then paint under the
+     cards of the next row (it asks for z-index 7 inside a z-index auto card). */
+  animation: rise var(--slow) var(--ease-out) backwards;
   animation-delay: var(--enter-delay, 0ms);
 }
+/* Belt and braces: while the entrance animation still has a transform, or if
+   anything else gives a card a stacking context, the open card goes above its
+   neighbours so its menu is never clipped by the row below. */
+.card.menu-open { z-index: 30; }
 .card.missing { cursor: default; }
 .card .thumb {
   position: relative;

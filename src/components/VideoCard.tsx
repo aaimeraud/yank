@@ -52,7 +52,7 @@ export default function VideoCard({ video, index, download, playing, folders, se
 
   return (
     <div
-      className={"card" + (selected ? " selected" : "") + (playing ? " playing" : "") + (downloaded ? "" : download ? " incoming" : " missing")}
+      className={"card" + (selected ? " selected" : "") + (playing ? " playing" : "") + (downloaded ? "" : download ? " incoming" : " missing") + (menuOpen ? " menu-open" : "")}
       style={{ "--enter-delay": `${Math.min(index, 11) * 45}ms` } as React.CSSProperties}
       role={selecting ? "checkbox" : "button"}
       aria-checked={selecting ? selected : undefined}

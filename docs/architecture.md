@@ -92,8 +92,9 @@ commands and one event.
 - `api.ts` is the only file with command names. `types.ts` mirrors
   `models.rs`; change both together.
 - `hooks/` hold state. `useLibrary` owns videos, folders and the
-  folder/search/filter/sort query; `useDownloads` owns the queue and applies
-  progress events; `useTabs` and `usePlayQueue` drive the player.
+  folder/search/filter/sort query; `useDownloads` owns the download queue and
+  applies progress events; `usePlayer` owns the one player, its play queue and
+  the YouTube stream session; `useYoutube` holds the search screen.
 - `lib/` is pure logic with tests: what the grid shows (`libraryView.ts`,
   `libraryFilter.ts`), how the queue is grouped (`queueGroups.ts`), the
   YouTube screen (`youtube.ts`), number formatting, source mapping, toasts

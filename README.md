@@ -25,7 +25,7 @@ and Yank downloads it, files it in a library, and plays it in its own player.
   right away (streamed in the player, up to 1080p, no download needed), or
   download it in any format. A playlist opens with its videos, Play all and
   Download all.
-- **Player**: tabs, resume where you stopped, watched at 90%, play queue,
+- **Player**: resume where you stopped, watched at 90%, a play queue,
   autoplay through a folder, keyboard shortcuts, picture in picture.
 
 ## Install
@@ -109,7 +109,7 @@ src/                    React UI
   api.ts                every backend call, typed (the only place with command names)
   types.ts              mirrors of the Rust types
   App.tsx               wires the hooks together
-  hooks/                state: library, queue, settings, tabs, play queue
+  hooks/                state: library, downloads, settings, player/queue, YouTube
   lib/                  pure logic with unit tests (filters, formatting, grouping)
   components/           views (youtube/ is the YouTube screen)
 src-tauri/src/          Rust backend

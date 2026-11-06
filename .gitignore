@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Python bytecode (scripts/ is run with uv, never committed)
+__pycache__/
+*.pyc
+
+# Local agent tooling
+.claude/launch.json

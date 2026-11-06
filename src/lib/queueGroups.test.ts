@@ -5,7 +5,7 @@ import { applyProgress, errorHeadline, intakeSummary, queueHeadline, replayEvent
 const playlistRow = (id: string, index: number, status: "done" | "failed" | "downloading" | "queued", progress = 0) =>
   makeQueueEntry(id, {
     playlist_id: "p1",
-    playlist_title: "Systems Design",
+    playlist_title: "Sample Folder",
     playlist_index: index,
     status,
     progress,
@@ -22,7 +22,7 @@ describe("groupQueue", () => {
     ];
     const groups = groupQueue(rows);
     expect(groups.map((g) => g.key)).toEqual(["solo", "p1", "solo2"]);
-    expect(groups[1].title).toBe("Systems Design");
+    expect(groups[1].title).toBe("Sample Folder");
     expect(groups[1].entries.map((e) => e.id)).toEqual(["first", "second", "third"]);
     expect(groups[0].title).toBeNull();
   });

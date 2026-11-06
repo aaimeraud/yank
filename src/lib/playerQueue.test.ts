@@ -15,14 +15,14 @@ import {
 } from "./playerQueue";
 
 const all = () => true;
-const folder = { label: "Systems Design", ids: ["a", "b", "c", "d"] };
+const folder = { label: "Sample Folder", ids: ["a", "b", "c", "d"] };
 const started = (id = "a") => play(EMPTY_PLAYER, id, folder);
 
 describe("play", () => {
   test("starting from a list sets the context and its cursor", () => {
     const state = started("b");
     expect(state).toMatchObject({ current: "b", cursor: 1, history: [] });
-    expect(state.context?.label).toBe("Systems Design");
+    expect(state.context?.label).toBe("Sample Folder");
   });
 
   test("the video being left goes to history, once", () => {

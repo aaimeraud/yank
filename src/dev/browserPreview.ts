@@ -28,17 +28,19 @@ function video(id: string, fields: Partial<Video>): Video {
   });
 }
 
-const PLAYLIST = "pl-systems";
-const FOLDER = "f-systems";
-const SD = { uploader: "Hello Interview", playlist_id: PLAYLIST, folder_id: FOLDER };
+// Fictional titles on real ids: the thumbnails still load, and the preview
+// never carries a real person's downloaded playlist.
+const PLAYLIST = "pl-sample";
+const FOLDER = "f-sample";
+const SAMPLE = { uploader: "Sample Channel", playlist_id: PLAYLIST, folder_id: FOLDER };
 
 const videos: Video[] = [
-  video("A7xEG6smBAk", { ...SD, title: "Systems Design 3.0 Is Here!", duration: 312, playlist_index: 1, thumbnail_path: thumb("A7xEG6smBAk"), watched: true }),
-  video("xFeWVugaouk", { ...SD, title: "Design a URL Shortener (TinyURL, Bit.ly)", duration: 3312, playlist_index: 2, thumbnail_path: thumb("xFeWVugaouk"), last_position: 1420 }),
-  video("RLdh1vQsVIQ", { ...SD, title: "Design the Facebook Like Button", duration: 2890, playlist_index: 3, thumbnail_path: thumb("RLdh1vQsVIQ") }),
-  video("qogwP78LzAk", { ...SD, title: "Design the Facebook/Twitter News Feed", duration: 3640, playlist_index: 4, thumbnail_path: thumb("qogwP78LzAk") }),
-  video("Qi3Kzq_rlKQ", { ...SD, title: "Design Dropbox/Google Drive", duration: 3105, playlist_index: 5, thumbnail_path: thumb("Qi3Kzq_rlKQ") }),
-  video("6TroztUV3f8", { ...SD, title: "Design an Ad Click Aggregator", duration: 3020, playlist_index: 6, file_path: null, downloaded_at: null }),
+  video("A7xEG6smBAk", { ...SAMPLE, title: "Sample Playlist — Welcome", duration: 312, playlist_index: 1, thumbnail_path: thumb("A7xEG6smBAk"), watched: true }),
+  video("xFeWVugaouk", { ...SAMPLE, title: "Sample Playlist — A Long Title That Wraps to Two Lines on a Card", duration: 3312, playlist_index: 2, thumbnail_path: thumb("xFeWVugaouk"), last_position: 1420 }),
+  video("RLdh1vQsVIQ", { ...SAMPLE, title: "Sample Playlist — Already Watched", duration: 2890, playlist_index: 3, thumbnail_path: thumb("RLdh1vQsVIQ") }),
+  video("qogwP78LzAk", { ...SAMPLE, title: "Sample Playlist — Downloading", duration: 3640, playlist_index: 4, thumbnail_path: thumb("qogwP78LzAk") }),
+  video("Qi3Kzq_rlKQ", { ...SAMPLE, title: "Sample Playlist — Also Downloading", duration: 3105, playlist_index: 5, thumbnail_path: thumb("Qi3Kzq_rlKQ") }),
+  video("6TroztUV3f8", { ...SAMPLE, title: "Sample Playlist — Failed Download", duration: 3020, playlist_index: 6, file_path: null, downloaded_at: null }),
   video("jNQXAC9IVRw", { title: "Me at the zoo", uploader: "jawed", duration: 19, thumbnail_path: thumb("jNQXAC9IVRw"), downloaded_at: NOW - 86400 }),
   video("1853124394226024625", { title: "Liftoff of Crew-9 to the International Space Station", uploader: "NASA", duration: 48, source: "twitter", downloaded_at: NOW - 7200, watched: true }),
   video("v2290000000", { title: "Speedrun any% — world record attempt, 4th try", uploader: "summit1g", duration: 7420, source: "twitch:vod", downloaded_at: NOW - 5000, last_position: 2400 }),
@@ -46,7 +48,7 @@ const videos: Video[] = [
 ];
 
 const folders: Folder[] = [
-  { id: FOLDER, name: "Systems Design Questions 3.0", created_at: NOW - 86400, video_count: videos.filter((v) => v.folder_id === FOLDER).length },
+  { id: FOLDER, name: "Sample Playlist", created_at: NOW - 86400, video_count: videos.filter((v) => v.folder_id === FOLDER).length },
   { id: "f-later", name: "Watch later", created_at: NOW - 3600, video_count: 0 },
 ];
 
@@ -65,7 +67,7 @@ function entry(id: string, from: Video, fields: Partial<QueueEntry>): QueueEntry
     url: from.url,
     source: from.source,
     playlist_id: from.playlist_id,
-    playlist_title: from.playlist_id ? "Systems Design Questions 3.0" : null,
+    playlist_title: from.playlist_id ? "Sample Playlist" : null,
     playlist_index: from.playlist_index,
     ...fields,
   };
@@ -105,7 +107,7 @@ const toolchain: ToolchainReport = {
 // library above to show "In library" and a live download.
 const hits: SearchResult[] = [
   ["dQw4w9WgXcQ", "Rick Astley - Never Gonna Give You Up (Official Video)", "Rick Astley", 213, 1_700_000_000],
-  ["qogwP78LzAk", "Design the Facebook/Twitter News Feed", "Hello Interview", 3640, 182_000],
+  ["qogwP78LzAk", "Sample Playlist — Downloading", "Sample Channel", 3640, 182_000],
   ["rFZHOHl-L8A", "lofi hip hop radio 📚 beats to relax/study to", "Lofi Girl", null, 31_000, "is_live"],
   ["rQ_J9WH6CGk", "Rust Programming Full Course | Learn ⚙️ in 2024", "BekBrace", 11104, 670_146],
   ["BpPEoZW5IiY", "Learn Rust Programming - Complete Course 🦀", "freeCodeCamp.org", 50350, 1_301_151],
@@ -150,7 +152,7 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
   list_queue: () => queue,
   get_settings: () => settings,
   toolchain_info: () => toolchain,
-  enqueue_url: () => ({ title: "Systems Design Questions 3.0", is_playlist: true, queued: 9, skipped: 6 }),
+  enqueue_url: () => ({ title: "Sample Playlist", is_playlist: true, queued: 9, skipped: 6 }),
   download_diagnostics: () => "Yank (browser preview)",
   prune_missing_videos: () => [],
   search_youtube: ({ query, kind, page }) => {

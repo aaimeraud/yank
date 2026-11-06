@@ -167,7 +167,7 @@ mod tests {
     }
 
     fn playlist(entries: Vec<Metadata>) -> UrlInfo {
-        UrlInfo { title: "Systems Design".into(), is_playlist: true, entries }
+        UrlInfo { title: "Sample Folder".into(), is_playlist: true, entries }
     }
 
     const LIST_URL: &str = "https://www.youtube.com/playlist?list=PL1";
@@ -181,7 +181,7 @@ mod tests {
         assert_eq!(plan.jobs.len(), 3);
         assert_eq!(plan.jobs[1].url, "https://www.youtube.com/watch?v=b");
         let folder = folders::list(&pool).await.unwrap();
-        assert_eq!((folder[0].name.as_str(), folder[0].video_count), ("Systems Design", 3));
+        assert_eq!((folder[0].name.as_str(), folder[0].video_count), ("Sample Folder", 3));
         let b = videos::get(&pool, "b").await.unwrap();
         assert_eq!(b.playlist_index, Some(2));
         assert!(b.playlist_id.is_some());

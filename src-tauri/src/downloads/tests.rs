@@ -120,7 +120,7 @@ impl Drop for Harness {
 #[tokio::test]
 async fn a_403_is_retried_with_a_fresh_extraction_and_finishes() {
     let h = Harness::new("403", 1, FORBIDDEN).await;
-    let id = h.start_in(Some("Systems/Design 3.0")).await;
+    let id = h.start_in(Some("Sample/Folder 3.0")).await;
 
     h.wait_for(&id, QueueStatus::Done).await;
     assert_eq!(h.attempts(), 2, "one retry is enough here");
@@ -132,7 +132,7 @@ async fn a_403_is_retried_with_a_fresh_extraction_and_finishes() {
     let template = args.lines().skip_while(|a| *a != "-o").nth(1).unwrap();
     assert_eq!(
         template,
-        h.dir.join("Systems-Design 3.0/%(title).150B [%(id)s].%(ext)s").display().to_string()
+        h.dir.join("Sample-Folder 3.0/%(title).150B [%(id)s].%(ext)s").display().to_string()
     );
 
     let events = h.events.lock().unwrap();

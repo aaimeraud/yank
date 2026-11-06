@@ -1,6 +1,6 @@
 name: Bug report
 description: Report a problem in the app
-title: "[Bug] "
+title: "fix: "
 labels:
   - bug
 body:

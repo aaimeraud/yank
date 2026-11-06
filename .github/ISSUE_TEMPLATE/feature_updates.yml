@@ -1,0 +1,28 @@
+name: Feature update
+description: Suggest an improvement to an existing feature
+title: "[Update] "
+labels:
+  - enhancement
+body:
+  - type: input
+    id: feature
+    attributes:
+      label: Feature
+      description: Which feature should be improved?
+      placeholder: For example, downloads
+    validations:
+      required: true
+  - type: textarea
+    id: change
+    attributes:
+      label: What should change?
+      description: Describe the improvement in a few words.
+      placeholder: Make it possible to ...
+    validations:
+      required: true
+  - type: textarea
+    id: reason
+    attributes:
+      label: Why is this useful?
+      description: Tell us what problem this would solve.
+      placeholder: This would help because ...

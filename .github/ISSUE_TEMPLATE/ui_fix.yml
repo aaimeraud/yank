@@ -1,0 +1,28 @@
+name: UI fix
+description: Report a visual or usability problem
+title: "[UI] "
+labels:
+  - ui
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What looks wrong?
+      description: Describe the visual or usability problem.
+      placeholder: The button ..., but it should ...
+    validations:
+      required: true
+  - type: input
+    id: location
+    attributes:
+      label: Where is it?
+      description: Name the screen or area.
+      placeholder: For example, Settings
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshot or extra details
+      description: Add a screenshot or any useful details.
+      placeholder: Optional

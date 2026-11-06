@@ -1,0 +1,28 @@
+name: New feature
+description: Suggest a feature that does not exist yet
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: feature
+    attributes:
+      label: What would you like?
+      description: Describe the new feature in a few words.
+      placeholder: Add a way to ...
+    validations:
+      required: true
+  - type: textarea
+    id: reason
+    attributes:
+      label: Why is it useful?
+      description: Tell us what problem this would solve.
+      placeholder: This would help because ...
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Example
+      description: Share a simple example of how it could work.
+      placeholder: Optional

@@ -8,6 +8,8 @@
 
 # Yank
 
+🇬🇧 English · [🇫🇷 Français](README.fr.md)
+
 A macOS desktop app for [yt-dlp](https://github.com/yt-dlp/yt-dlp): paste a
 video, playlist or channel URL from YouTube, X (Twitter), Twitch or any of the
 [sites yt-dlp supports](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md),

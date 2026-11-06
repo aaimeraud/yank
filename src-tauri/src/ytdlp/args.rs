@@ -152,10 +152,10 @@ mod tests {
 
     #[test]
     fn a_filed_video_lands_in_its_folder_otherwise_under_the_channel() {
-        let filed = download_args(&request(Format::Video, Some("Systems Design")));
+        let filed = download_args(&request(Format::Video, Some("Sample Folder")));
         assert_eq!(
             value_after(&filed, "-o"),
-            Some("/Users/me/Movies/Yank/Systems Design/%(title).150B [%(id)s].%(ext)s")
+            Some("/Users/me/Movies/Yank/Sample Folder/%(title).150B [%(id)s].%(ext)s")
         );
         let loose = download_args(&request(Format::Video, None));
         assert_eq!(

@@ -120,7 +120,7 @@ impl Drop for Harness {
 #[tokio::test]
 async fn a_403_is_retried_with_a_fresh_extraction_and_finishes() {
     let h = Harness::new("403", 1, FORBIDDEN).await;
-    let id = h.start_in(Some("Systems/Design 3.0")).await;
+    let id = h.start_in(Some("Sample/Folder 3.0")).await;
 
     h.wait_for(&id, QueueStatus::Done).await;
     assert_eq!(h.attempts(), 2, "one retry is enough here");
@@ -132,7 +132,7 @@ async fn a_403_is_retried_with_a_fresh_extraction_and_finishes() {
     let template = args.lines().skip_while(|a| *a != "-o").nth(1).unwrap();
     assert_eq!(
         template,
-        h.dir.join("Systems-Design 3.0/%(title).150B [%(id)s].%(ext)s").display().to_string()
+        h.dir.join("Sample-Folder 3.0/%(title).150B [%(id)s].%(ext)s").display().to_string()
     );
 
     let events = h.events.lock().unwrap();
@@ -239,7 +239,7 @@ async fn pausing_stops_the_whole_process_group() {
 async fn overlapping_enqueues_queue_each_video_once() {
     let h = Harness::new("double-enqueue", 0, "").await;
     let url = "https://example.com/playlist";
-    let (first, second) = tokio::join!(h.manager.enqueue_url(url, None), h.manager.enqueue_url(url, None));
+    let (first, second) = tokio::join!(h.manager.enqueue_url(url, None, false), h.manager.enqueue_url(url, None, false));
     let queued = first.unwrap().queued + second.unwrap().queued;
     assert_eq!(queued, 2, "two entries, queued once each");
     assert_eq!(queue::list(h.manager.pool()).await.unwrap().len(), 2);
@@ -279,7 +279,7 @@ async fn assert_files_exist(manager: &DownloadManager) {
 #[ignore = "network access"]
 async fn live_youtube_video_downloads_as_mp4() {
     let (manager, dir) = live_manager("live-yt").await;
-    let summary = manager.enqueue_url("https://www.youtube.com/watch?v=jNQXAC9IVRw", None).await.unwrap();
+    let summary = manager.enqueue_url("https://www.youtube.com/watch?v=jNQXAC9IVRw", None, false).await.unwrap();
     assert_eq!((summary.queued, summary.is_playlist), (1, false));
     wait_done(&manager, Duration::from_secs(180)).await;
     assert_files_exist(&manager).await;
@@ -294,7 +294,7 @@ async fn live_youtube_video_downloads_as_mp4() {
 async fn live_youtube_audio_keeps_its_real_extension() {
     let (manager, dir) = live_manager("live-audio").await;
     manager
-        .enqueue_url("https://www.youtube.com/watch?v=jNQXAC9IVRw", Some(Format::Audio))
+        .enqueue_url("https://www.youtube.com/watch?v=jNQXAC9IVRw", Some(Format::Audio), false)
         .await
         .unwrap();
     wait_done(&manager, Duration::from_secs(180)).await;
@@ -307,7 +307,7 @@ async fn live_youtube_audio_keeps_its_real_extension() {
 #[ignore = "network access"]
 async fn live_pause_then_resume_completes() {
     let (manager, dir) = live_manager("live-pause").await;
-    manager.enqueue_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ", None).await.unwrap();
+    manager.enqueue_url("https://www.youtube.com/watch?v=dQw4w9WgXcQ", None, false).await.unwrap();
     let id = queue::list(manager.pool()).await.unwrap()[0].id.clone();
     let deadline = Instant::now() + Duration::from_secs(90);
     while queue::get(manager.pool(), &id).await.unwrap().progress <= 0.0 {
@@ -370,7 +370,7 @@ async fn a_url_without_a_format_uses_the_settings_default() {
     crate::settings::set(h.manager.pool(), crate::settings::KEY_FORMAT, "audio").await.unwrap();
 
     // The URL box sends no format unless the user picked one in it.
-    h.manager.enqueue_url("https://example.com/list", None).await.unwrap();
+    h.manager.enqueue_url("https://example.com/list", None, false).await.unwrap();
 
     let rows = queue::list(h.manager.pool()).await.unwrap();
     assert_eq!(rows.len(), 2);

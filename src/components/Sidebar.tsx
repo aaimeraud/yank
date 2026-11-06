@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { Folder, Video, View } from "../types";
 import { displayTitle } from "../lib/display";
 import { ALL, UNFILED } from "../lib/libraryFilter";
-import { DownloadsIcon, FolderIcon, LibraryIcon, PlusIcon, SettingsIcon, SidebarIcon } from "./icons";
+import { DownloadsIcon, FolderIcon, LibraryIcon, PlusIcon, SettingsIcon, SidebarIcon, YouTubeIcon } from "./icons";
 
 interface Props {
   view: View;
@@ -79,6 +79,7 @@ export default function Sidebar(props: Props) {
     <aside className={"sidebar" + (props.collapsed ? " collapsed" : "")}>
       <nav className="nav-group" aria-label="Screens">
         {navItem("library", "Library", <LibraryIcon />)}
+        {navItem("youtube", "YouTube", <YouTubeIcon />)}
         {navItem("downloads", "Downloads", <DownloadsIcon />, props.activeDownloads)}
         {navItem("settings", "Settings", <SettingsIcon />)}
         {props.nowPlaying &&

@@ -103,6 +103,16 @@ export function LibraryIcon({ size = 16 }: IconProps) {
   );
 }
 
+/** The YouTube screen: a player tile, drawn in the nav's line style rather than the brand logo. */
+export function YouTubeIcon({ size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" {...stroke}>
+      <rect x="1.5" y="3.25" width="13" height="9.5" rx="3" />
+      <path d="M6.75 6v4l3.5-2z" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function DownloadsIcon({ size = 16 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" {...stroke}>

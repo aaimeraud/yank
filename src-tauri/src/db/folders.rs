@@ -207,14 +207,14 @@ mod tests {
     #[tokio::test]
     async fn disk_name_follows_the_videos_folder() {
         let pool = test_pool().await;
-        let folder = create(&pool, "Systems/Design 3.0").await.unwrap();
+        let folder = create(&pool, "Sample/Folder 3.0").await.unwrap();
         video(&pool, "filed", None).await;
         video(&pool, "loose", None).await;
         videos::move_to_folder(&pool, "filed", Some(&folder.id)).await.unwrap();
 
         assert_eq!(
             disk_name_for_video(&pool, "filed").await.as_deref(),
-            Some("Systems-Design 3.0")
+            Some("Sample-Folder 3.0")
         );
         assert_eq!(disk_name_for_video(&pool, "loose").await, None);
         assert_eq!(disk_name_for_video(&pool, "missing").await, None);
@@ -222,7 +222,7 @@ mod tests {
 
     #[test]
     fn disk_names_cannot_escape_or_hide() {
-        assert_eq!(disk_name("Systems Design 3.0"), "Systems Design 3.0");
+        assert_eq!(disk_name("Sample Folder 3.0"), "Sample Folder 3.0");
         assert_eq!(disk_name("a/b:c\\d"), "a-b-c-d");
         assert_eq!(disk_name("  .hidden.  "), "hidden");
         assert_eq!(disk_name("   "), "");

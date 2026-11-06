@@ -21,7 +21,11 @@ and Yank downloads it, files it in a library, and plays it in its own player.
 - **Library**: folders (a playlist gets its own, numbered in playlist order),
   search, filters by source and watch status, sorting, bulk move/delete,
   Show in Finder, Copy link. Deleting a file moves it to the Trash.
-- **Player**: tabs, resume where you stopped, watched at 90%, play queue,
+- **YouTube**: search videos and playlists from the sidebar, watch a result
+  right away (streamed in the player, up to 1080p, no download needed), or
+  download it in any format. A playlist opens with its videos, Play all and
+  Download all.
+- **Player**: resume where you stopped, watched at 90%, a play queue,
   autoplay through a folder, keyboard shortcuts, picture in picture.
 
 ## Install
@@ -105,14 +109,14 @@ src/                    React UI
   api.ts                every backend call, typed (the only place with command names)
   types.ts              mirrors of the Rust types
   App.tsx               wires the hooks together
-  hooks/                state: library, queue, settings, tabs, play queue
+  hooks/                state: library, downloads, settings, player/queue, YouTube
   lib/                  pure logic with unit tests (filters, formatting, grouping)
-  components/           views
+  components/           views (youtube/ is the YouTube screen)
 src-tauri/src/          Rust backend
   lib.rs                startup and the list of commands
   commands/             the IPC surface, thin
   downloads/            queue runtime: enqueue, worker, retries, yt-dlp process
-  ytdlp/                finding, invoking and parsing yt-dlp
+  ytdlp/                finding, invoking and parsing yt-dlp; YouTube search and streams
   db/                   SQLite, one file per table
   settings.rs, models.rs
 src-tauri/migrations/   schema, applied at startup

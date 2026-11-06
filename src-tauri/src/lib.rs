@@ -77,6 +77,9 @@ pub fn run() {
             commands::system::pick_cookies_file,
             commands::system::toolchain_info,
             commands::system::open_logs_folder,
+            commands::youtube::search_youtube,
+            commands::youtube::inspect_url,
+            commands::youtube::stream_video,
         ])
         .build(tauri::generate_context!())
         .expect("error while building the app")

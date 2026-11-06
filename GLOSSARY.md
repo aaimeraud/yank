@@ -52,5 +52,14 @@ The list of Videos playback was started from (a folder, as it was shown). Autopl
 **Mini player**:
 The player shrunk to the corner while another screen is open. Same video element, so playback continues.
 
+**Search Result** (hit):
+A video or playlist found on the YouTube screen. Not in the Library until downloaded; a video hit has the same id as its Library Video, which is how the screen marks hits already downloaded.
+
+**Stream**:
+Watching a Video without downloading it: yt-dlp resolves YouTube's HLS playlist and the player plays it (ADR 0010). The URL expires after a few hours and is never stored.
+
+**Stream Session**:
+The list of Search Results a stream was started from (the results, or a playlist). While it is open, Next and autoplay go through it; playing from the Library ends it. Not the Play Queue, which waits untouched.
+
 **Cookies File**:
 A Netscape-format cookies.txt imported by the user to enable downloads requiring authentication.

@@ -1,0 +1,143 @@
+{
+ "id": "rust tutorial",
+ "title": "rust tutorial",
+ "_type": "playlist",
+ "entries": [
+  {
+   "_type": "url",
+   "ie_key": "Youtube",
+   "id": "rQ_J9WH6CGk",
+   "url": "https://www.youtube.com/watch?v=rQ_J9WH6CGk",
+   "title": "Rust Programming Full Course  | Learn ⚙️ in 2024 | #rustprogramming #rust",
+   "duration": 11104,
+   "channel_id": "UC7EVSn5inapL20oPSwAwEUg",
+   "channel": "BekBrace",
+   "channel_url": "https://www.youtube.com/channel/UC7EVSn5inapL20oPSwAwEUg",
+   "uploader": "BekBrace",
+   "uploader_id": "@BekBrace",
+   "uploader_url": "https://www.youtube.com/@BekBrace",
+   "thumbnails": [
+    {
+     "url": "https://i.ytimg.com/vi/rQ_J9WH6CGk/hq720.jpg?sqp=-oaymwEcCOgCEMoBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLAawD3A-RGpPblc9HlWs5ttkPvqaQ",
+     "height": 202,
+     "width": 360
+    },
+    {
+     "url": "https://i.ytimg.com/vi/rQ_J9WH6CGk/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLDVkrfoiihp9A723zxGLTnhtzspSA",
+     "height": 404,
+     "width": 720
+    }
+   ],
+   "timestamp": null,
+   "release_timestamp": null,
+   "availability": null,
+   "view_count": 670156,
+   "live_status": null,
+   "channel_is_verified": null
+  },
+  {
+   "_type": "url",
+   "ie_key": "Youtube",
+   "id": "Wc0ZJo06oAw",
+   "url": "https://www.youtube.com/watch?v=Wc0ZJo06oAw",
+   "title": "The Ultimate Rust Beginners Guide (2026)",
+   "duration": 422,
+   "channel_id": "UCt6XPuD8u3YjvybuT-Xnj5A",
+   "channel": "SBJake",
+   "channel_url": "https://www.youtube.com/channel/UCt6XPuD8u3YjvybuT-Xnj5A",
+   "uploader": "SBJake",
+   "uploader_id": "@SBJake",
+   "uploader_url": "https://www.youtube.com/@SBJake",
+   "thumbnails": [
+    {
+     "url": "https://i.ytimg.com/vi/Wc0ZJo06oAw/hq720.jpg?sqp=-oaymwEcCOgCEMoBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLAJnKj3iP69n6yPc2tWdJ8rONKqgQ",
+     "height": 202,
+     "width": 360
+    },
+    {
+     "url": "https://i.ytimg.com/vi/Wc0ZJo06oAw/hq720.jpg?sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLBr4Wl74aWTGhqEgLRsg95hiNShOg",
+     "height": 404,
+     "width": 720
+    }
+   ],
+   "timestamp": null,
+   "release_timestamp": null,
+   "availability": null,
+   "view_count": 579237,
+   "live_status": null,
+   "channel_is_verified": null
+  },
+  {
+   "_type": "url",
+   "ie_key": "Youtube",
+   "id": "rFZHOHl-L8A",
+   "url": "https://www.youtube.com/watch?v=rFZHOHl-L8A",
+   "title": "lofi hip hop radio 📚 beats to relax/study to",
+   "duration": null,
+   "channel_id": "UCSJ4gkVC6NrvII8umztf0Ow",
+   "channel": "Lofi Girl",
+   "channel_url": "https://www.youtube.com/channel/UCSJ4gkVC6NrvII8umztf0Ow",
+   "uploader": "Lofi Girl",
+   "uploader_id": null,
+   "uploader_url": null,
+   "thumbnails": [
+    {
+     "url": "https://i.ytimg.com/vi/rFZHOHl-L8A/hq720.jpg?v=6ad62bed&sqp=-oaymwEcCOgCEMoBSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLDN3Yy-Dw3B9x_HYcTaGXq7gEVppA",
+     "height": 202,
+     "width": 360
+    },
+    {
+     "url": "https://i.ytimg.com/vi/rFZHOHl-L8A/hq720.jpg?v=6ad62bed&sqp=-oaymwEcCNAFEJQDSFXyq4qpAw4IARUAAIhCGAFwAcABBg==&rs=AOn4CLCdekX1ygqqUJynjbliA5ayfR7tlw",
+     "height": 404,
+     "width": 720
+    }
+   ],
+   "timestamp": null,
+   "release_timestamp": null,
+   "availability": null,
+   "concurrent_view_count": 10197,
+   "live_status": "is_live",
+   "channel_is_verified": true
+  }
+ ],
+ "webpage_url": "https://www.youtube.com/results?search_query=rust+tutorial&sp=EgIQAQ%3D%3D",
+ "original_url": "https://www.youtube.com/results?search_query=rust+tutorial&sp=EgIQAQ%3D%3D",
+ "webpage_url_basename": "results",
+ "webpage_url_domain": "youtube.com",
+ "extractor": "youtube:search_url",
+ "extractor_key": "YoutubeSearchURL",
+ "release_year": null,
+ "requested_entries": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6,
+  7,
+  8,
+  9,
+  10,
+  11,
+  12,
+  13,
+  14,
+  15,
+  16,
+  17,
+  18,
+  19,
+  20,
+  21,
+  22,
+  23,
+  24,
+  25,
+  26,
+  27,
+  28,
+  29,
+  30
+ ],
+ "playlist_count": null
+}

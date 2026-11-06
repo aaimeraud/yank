@@ -2,7 +2,7 @@
 // Change both sides together.
 
 /** The screen in the main area. "player" is the full-size player. */
-export type View = "library" | "downloads" | "settings" | "player";
+export type View = "library" | "youtube" | "downloads" | "settings" | "player";
 
 /** What yt-dlp is asked for. See ADR 0002. */
 export type Format = "video" | "audio" | "original";
@@ -96,4 +96,60 @@ export interface ToolchainReport {
   ytdlp_version: string | null;
   ffmpeg_path: string | null;
   deno_path: string | null;
+}
+
+/** What a YouTube search lists. */
+export type SearchKind = "video" | "playlist";
+
+/** One YouTube search hit (`SearchResult` in models.rs). */
+export interface SearchResult {
+  kind: SearchKind;
+  /** The YouTube id; for a video, also its library `Video.id`. */
+  id: string;
+  title: string;
+  /** Watch or playlist URL, ready for `enqueueUrl`. */
+  url: string;
+  channel: string | null;
+  /** Seconds; null for live streams and playlists. */
+  duration: number | null;
+  view_count: number | null;
+  /** A web URL (i.ytimg.com), never a local path. */
+  thumbnail: string | null;
+  /** "is_live", "is_upcoming", "was_live" or null. */
+  live_status: string | null;
+}
+
+export interface SearchPage {
+  results: SearchResult[];
+  has_more: boolean;
+}
+
+/** Where to stream a video from (ADR 0010). Expires after a few hours. */
+export interface Stream {
+  url: string;
+  /** An HLS master playlist, which WKWebView plays natively. */
+  is_hls: boolean;
+  is_live: boolean;
+}
+
+/** One entry of what yt-dlp reports for a URL (`Metadata` in models.rs). */
+export interface Metadata {
+  id: string;
+  title: string;
+  uploader: string | null;
+  duration: number | null;
+  /** A web URL here, not a local path. */
+  thumbnail: string | null;
+  extractor: string | null;
+  webpage_url: string | null;
+  index: number;
+  /** "is_live", "is_upcoming"... or null. */
+  live_status: string | null;
+}
+
+/** What a URL turned out to be (`UrlInfo` in models.rs). */
+export interface UrlInfo {
+  title: string;
+  is_playlist: boolean;
+  entries: Metadata[];
 }

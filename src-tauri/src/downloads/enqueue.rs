@@ -12,7 +12,8 @@ use sqlx::SqlitePool;
 #[derive(Debug, Default)]
 pub struct Plan {
     pub jobs: Vec<Job>,
-    /// Entries already downloaded, already queued, or without a usable URL.
+    /// Entries already downloaded, already queued, without a usable URL,
+    /// or live (see [`is_recording`]).
     pub skipped: usize,
 }
 
@@ -44,12 +45,41 @@ pub async fn plan(pool: &SqlitePool, info: &UrlInfo, url: &str, format: Format) 
             plan.skipped += 1;
             continue;
         };
+        if info.is_playlist && is_recording(meta) {
+            plan.skipped += 1;
+            continue;
+        }
         match video_to_download(pool, meta, &target, context.as_ref()).await? {
             Some(video_id) => plan.jobs.push(queue::insert(pool, &video_id, &target, format).await?),
             None => plan.skipped += 1,
         }
     }
     Ok(plan)
+}
+
+/// A live entry would record until the stream ends (never, for a 24/7
+/// radio) and an upcoming one has nothing to fetch, so a playlist download
+/// leaves both out. A live link pasted on its own is still downloaded:
+/// recording one on purpose is a choice, catching one inside a playlist
+/// is not.
+fn is_recording(meta: &Metadata) -> bool {
+    matches!(meta.live_status.as_deref(), Some("is_live" | "is_upcoming"))
+}
+
+/// For a hit of the YouTube screen: a single live or upcoming video is
+/// refused, whatever the search listing said (its `live_status` can be
+/// missing there; the full lookup's is not).
+pub fn refuse_recording(info: &UrlInfo) -> AppResult<()> {
+    match info.entries.as_slice() {
+        [only] if !info.is_playlist && is_recording(only) => Err(AppError::user(
+            if only.live_status.as_deref() == Some("is_live") {
+                "Live streams can be watched, not downloaded."
+            } else {
+                "This premiere has not started yet."
+            },
+        )),
+        _ => Ok(()),
+    }
 }
 
 /// The playlist row and folder every entry is filed under.
@@ -124,6 +154,7 @@ mod tests {
 
     fn meta(id: &str, index: i64) -> Metadata {
         Metadata {
+            live_status: None,
             id: id.into(),
             title: format!("Video {id}"),
             uploader: Some("Uploader".into()),
@@ -136,7 +167,7 @@ mod tests {
     }
 
     fn playlist(entries: Vec<Metadata>) -> UrlInfo {
-        UrlInfo { title: "Systems Design".into(), is_playlist: true, entries }
+        UrlInfo { title: "Sample Folder".into(), is_playlist: true, entries }
     }
 
     const LIST_URL: &str = "https://www.youtube.com/playlist?list=PL1";
@@ -150,7 +181,7 @@ mod tests {
         assert_eq!(plan.jobs.len(), 3);
         assert_eq!(plan.jobs[1].url, "https://www.youtube.com/watch?v=b");
         let folder = folders::list(&pool).await.unwrap();
-        assert_eq!((folder[0].name.as_str(), folder[0].video_count), ("Systems Design", 3));
+        assert_eq!((folder[0].name.as_str(), folder[0].video_count), ("Sample Folder", 3));
         let b = videos::get(&pool, "b").await.unwrap();
         assert_eq!(b.playlist_index, Some(2));
         assert!(b.playlist_id.is_some());
@@ -170,6 +201,45 @@ mod tests {
         let ids: Vec<_> = plan.jobs.iter().map(|job| job.video_id.as_str()).collect();
         assert_eq!(ids, vec!["failed", "new"]);
         assert_eq!(plan.skipped, 2);
+    }
+
+    /// Regression: Download all on a playlist holding a 24/7 live radio
+    /// queued a download that never ends.
+    #[tokio::test]
+    async fn a_playlist_leaves_out_live_and_upcoming_entries() {
+        let pool = test_pool().await;
+        let live = Metadata { live_status: Some("is_live".into()), ..meta("radio", 2) };
+        let premiere = Metadata { live_status: Some("is_upcoming".into()), ..meta("soon", 3) };
+        let was_live = Metadata { live_status: Some("was_live".into()), ..meta("vod", 4) };
+        let info = playlist(vec![meta("a", 1), live, premiere, was_live]);
+        let plan = plan(&pool, &info, LIST_URL, Format::Video).await.unwrap();
+        let queued: Vec<&str> = plan.jobs.iter().map(|job| job.url.as_str()).collect();
+        assert_eq!(queued, ["https://www.youtube.com/watch?v=a", "https://www.youtube.com/watch?v=vod"]);
+        assert_eq!(plan.skipped, 2);
+    }
+
+    #[test]
+    fn a_live_hit_from_the_search_screen_is_refused() {
+        let single = |status: Option<&str>| UrlInfo {
+            title: "T".into(),
+            is_playlist: false,
+            entries: vec![Metadata { live_status: status.map(String::from), ..meta("v", 1) }],
+        };
+        assert!(refuse_recording(&single(Some("is_live"))).unwrap_err().to_string().contains("Live"));
+        assert!(refuse_recording(&single(Some("is_upcoming"))).is_err());
+        assert!(refuse_recording(&single(Some("was_live"))).is_ok());
+        assert!(refuse_recording(&single(None)).is_ok());
+        // A playlist is filtered entry by entry instead (see above).
+        let live = Metadata { live_status: Some("is_live".into()), ..meta("radio", 1) };
+        assert!(refuse_recording(&playlist(vec![live])).is_ok());
+    }
+
+    #[tokio::test]
+    async fn a_live_link_pasted_alone_is_still_downloaded() {
+        let pool = test_pool().await;
+        let live = Metadata { live_status: Some("is_live".into()), ..meta("radio", 1) };
+        let info = UrlInfo { title: "Radio".into(), is_playlist: false, entries: vec![live] };
+        assert_eq!(plan(&pool, &info, "https://www.youtube.com/watch?v=radio", Format::Video).await.unwrap().jobs.len(), 1);
     }
 
     #[tokio::test]

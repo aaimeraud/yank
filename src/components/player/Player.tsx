@@ -1,19 +1,21 @@
 import { useEffect, useRef, useState } from "react";
-import { convertFileSrc } from "@tauri-apps/api/core";
 import type { Video } from "../../types";
-import type { PlayerMode } from "../../hooks/usePlayer";
+import type { PlayerMode, PlayerSource } from "../../hooks/usePlayer";
+import { mediaSrc } from "../../lib/media";
 import { displayTitle } from "../../lib/display";
 import { formatClock, formatDuration } from "../../lib/format";
 import { sourceLabel } from "../../lib/source";
 import SourceIcon from "../SourceIcon";
 import ThumbImage from "../ThumbImage";
-import { FinderIcon, LinkIcon, PlayIcon } from "../icons";
+import { DownloadsIcon, FinderIcon, LinkIcon, PlayIcon } from "../icons";
 import Controls from "./Controls";
 import MiniBar from "./MiniBar";
 import { usePlayback } from "./usePlayback";
 
 interface Props {
   video: Video;
+  /** Where the media comes from: the file on disk, or a stream (ADR 0010). */
+  source: PlayerSource;
   mode: PlayerMode;
   startToken: number;
   nextVideo: Video | null;
@@ -34,6 +36,12 @@ interface Props {
   onClose: () => void;
   onReveal: () => void;
   onCopyLink: () => void;
+  /** Download what is streaming; null when that is not possible (a live). */
+  onDownload: (() => void) | null;
+  /** Resolve the stream again and resume at `position` seconds. */
+  onRetryStream: (position: number) => void;
+  /** The element gave up on the stream (true), or recovered by itself (false). */
+  onStreamFailed: (failed: boolean) => void;
 }
 
 /**
@@ -43,9 +51,15 @@ interface Props {
  * React keeps the same <video> element and playback never restarts.
  */
 export default function Player(props: Props) {
-  const { video, mode } = props;
+  const { video, mode, source } = props;
   const shellRef = useRef<HTMLDivElement>(null);
-  const playback = usePlayback(video, props.startToken, props.repeat, props.onEnded, props.onSaved);
+  const playback = usePlayback(video, source.src, props.startToken, props.repeat, props.onEnded, props.onSaved);
+  const problem = source.error ?? (playback.failed ? failureText(source) : null);
+  const reportFailure = useRef(props.onStreamFailed);
+  reportFailure.current = props.onStreamFailed;
+  useEffect(() => {
+    if (source.streaming) reportFailure.current(playback.failed);
+  }, [playback.failed, source.streaming]);
   const [fullscreen, setFullscreen] = useState(false);
   const idle = useIdle(fullscreen && playback.playing);
 
@@ -111,18 +125,32 @@ export default function Player(props: Props) {
       <div className="player-stage" key="stage">
         <video
           ref={playback.videoRef}
-          src={video.file_path ? convertFileSrc(video.file_path) : undefined}
-          poster={video.thumbnail_path ? convertFileSrc(video.thumbnail_path) : undefined}
+          src={source.src}
+          poster={video.thumbnail_path ? mediaSrc(video.thumbnail_path) : undefined}
           preload="metadata"
           onClick={mode === "mini" ? props.onExpand : playback.toggle}
           onDoubleClick={mode === "full" ? toggleFullscreen : undefined}
           onPlay={() => playback.setPlaying(true)}
           onPause={() => playback.setPlaying(false)}
         />
-        {mode === "full" && !playback.playing && (
+        {mode === "full" && !playback.playing && !source.loading && !problem && (
           <button className="vv-bigplay" onClick={playback.toggle} aria-label="Play">
             <PlayIcon size={28} />
           </button>
+        )}
+        {source.loading && (
+          <div className="vv-status" role="status">
+            <span className="spinner" aria-hidden="true" />
+            {mode === "full" && <span>Loading the stream…</span>}
+          </div>
+        )}
+        {problem && (
+          <div className="vv-status vv-problem" role="alert">
+            {mode === "full" ? <span>{problem}</span> : <span>Stream stopped</span>}
+            {source.streaming && (
+              <button onClick={() => props.onRetryStream(playback.lastTime())}>Try again</button>
+            )}
+          </div>
         )}
         {playback.flash && <div className="vv-flash">{playback.flash}</div>}
         {mode === "full" && playback.resumedFrom !== null && (
@@ -149,7 +177,15 @@ export default function Player(props: Props) {
       ) : (
         <>
           {!fullscreen && <Controls {...transport} {...controlProps(props, toggleFullscreen, pictureInPicture)} />}
-          <VideoInfo video={video} nextVideo={props.nextVideo} onNext={props.onNext} onReveal={props.onReveal} onCopyLink={props.onCopyLink} />
+          <VideoInfo
+            video={video}
+            source={source}
+            nextVideo={props.nextVideo}
+            onNext={props.onNext}
+            onReveal={props.onReveal}
+            onCopyLink={props.onCopyLink}
+            onDownload={props.onDownload}
+          />
         </>
       )}
     </div>
@@ -170,17 +206,30 @@ function controlProps(props: Props, fullscreen: () => void, pip: () => void) {
   };
 }
 
+/** What to say when the element gave up on its source. */
+function failureText(source: PlayerSource): string {
+  if (!source.streaming) return "This file cannot be played here. Show it in Finder to open it in another player.";
+  return "The stream stopped. Its link may have expired, or the connection dropped.";
+}
+
 interface InfoProps {
   video: Video;
+  source: PlayerSource;
   nextVideo: Video | null;
   onNext: () => void;
   onReveal: () => void;
   onCopyLink: () => void;
+  onDownload: (() => void) | null;
 }
 
 /** Under the controls: the title, where it comes from, and what plays next. */
-function VideoInfo({ video, nextVideo, onNext, onReveal, onCopyLink }: InfoProps) {
-  const meta = [video.uploader ?? "Unknown", formatDuration(video.duration), video.watched ? "Watched" : ""].filter(Boolean);
+function VideoInfo({ video, source, nextVideo, onNext, onReveal, onCopyLink, onDownload }: InfoProps) {
+  const meta = [
+    video.uploader ?? "Unknown",
+    source.isLive ? "Live" : formatDuration(video.duration),
+    source.streaming ? "Streaming" : "",
+    video.watched ? "Watched" : "",
+  ].filter(Boolean);
   return (
     <div className="vv-info">
       <div className="vv-head">
@@ -191,9 +240,16 @@ function VideoInfo({ video, nextVideo, onNext, onReveal, onCopyLink }: InfoProps
         <h1 className="vv-title">{displayTitle(video)}</h1>
         <p className="vv-meta">{meta.join(" · ")}</p>
         <div className="vv-actions">
-          <button onClick={onReveal}>
-            <FinderIcon /> Show in Finder
-          </button>
+          {source.streaming && onDownload && (
+            <button onClick={onDownload}>
+              <DownloadsIcon /> Download
+            </button>
+          )}
+          {!source.streaming && (
+            <button onClick={onReveal}>
+              <FinderIcon /> Show in Finder
+            </button>
+          )}
           <button onClick={onCopyLink}>
             <LinkIcon /> Copy link
           </button>

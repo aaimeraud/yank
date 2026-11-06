@@ -48,6 +48,31 @@ commands and one event.
    thumbnail. The UI hears `done`, reloads the library, and the card becomes
    playable.
 
+## Search and stream (the YouTube screen)
+
+- **Search.** `components/youtube/YouTube.tsx` → `api.searchYoutube(query,
+  kind, page)` → `commands/youtube.rs::search_youtube` →
+  `ytdlp/search.rs`. yt-dlp reads YouTube's results page
+  (`/results?search_query=…&sp=<type filter>`) with `--flat-playlist` and
+  a `--playlist-items` range of 24 per page; the parser keeps only hits of
+  the asked kind. The state machine is `lib/youtube.ts::searchReducer`:
+  every request is numbered, and an answer to an outdated number is
+  dropped, so a slow search never overwrites the one typed after it. The
+  state lives in `hooks/useYoutube.ts`, at the app level, so a search
+  survives a trip to another screen.
+- **Download.** A hit goes through `enqueue_url` like a pasted link
+  (playlists get their folder). Hits are matched to the library by id
+  (`lib/youtube.ts::hitState`): on disk, downloading, or neither.
+- **Watch** (ADR 0010). `usePlayer.playStream(items, index, label)` opens
+  a stream session and the player at once; `api.streamVideo(url)` →
+  `ytdlp/stream.rs` resolves the HLS master playlist (about 4 s) and the
+  `<video>` plays it. `usePlayback` treats the source as part of a run, so
+  the URL arriving late starts the video then. Next, autoplay and the
+  queue panel follow the session's list. Items already on disk play their
+  file.
+- **A playlist** opens in place: `api.inspectUrl` is the same
+  `--flat-playlist` call `enqueue_url` makes, without queueing anything.
+
 ## Who owns the truth
 
 - **The queue row's status** is what the user wants. Pause and cancel write
@@ -67,11 +92,13 @@ commands and one event.
 - `api.ts` is the only file with command names. `types.ts` mirrors
   `models.rs`; change both together.
 - `hooks/` hold state. `useLibrary` owns videos, folders and the
-  folder/search/filter/sort query; `useDownloads` owns the queue and applies
-  progress events; `useTabs` and `usePlayQueue` drive the player.
+  folder/search/filter/sort query; `useDownloads` owns the download queue and
+  applies progress events; `usePlayer` owns the one player, its play queue and
+  the YouTube stream session; `useYoutube` holds the search screen.
 - `lib/` is pure logic with tests: what the grid shows (`libraryView.ts`,
-  `libraryFilter.ts`), how the queue is grouped (`queueGroups.ts`), number
-  formatting, source mapping, toasts (`notify.ts`).
+  `libraryFilter.ts`), how the queue is grouped (`queueGroups.ts`), the
+  YouTube screen (`youtube.ts`), number formatting, source mapping, toasts
+  (`notify.ts`).
 - Errors from any command surface as a toast (`lib/notify.ts`); nothing
   calls `window.alert`. Confirmations use the native dialog (`lib/confirm.ts`).
 
@@ -121,6 +148,14 @@ owns the element: it resumes where you stopped and saves the position every
   (`lib/queueGroups.ts::replayEvents`).
 - **"Move file to Trash"** goes through `disk.rs` (NSFileManager, ADR 0007).
   Unit tests swap the Trash for a temp folder so they never touch yours.
+- **YouTube changes its results page or the HLS clients.** Search parses
+  a handful of fields (`ytdlp/search.rs`, tested on captured output in
+  `ytdlp/fixtures/`); streaming depends on yt-dlp still finding an HLS
+  format. A yt-dlp update is the fix for both; the ignored live tests
+  (`cargo test -- --ignored search stream`) say which broke.
+- **A stream URL expires** after about six hours (a paused mini player
+  left overnight). The element errors and the player offers Try again,
+  which resolves a new URL and resumes at the same second.
 - **A video whose file disappeared** keeps its library entry (watched state,
   folder): `downloaded_at` records that it was downloaded once, and queue
   cleanup only deletes videos that never were.

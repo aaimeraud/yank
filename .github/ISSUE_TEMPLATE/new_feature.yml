@@ -1,6 +1,7 @@
 name: New feature
 description: Suggest a feature that does not exist yet
 title: "feat: "
+assignees: "aaimeraud"
 labels:
   - enhancement
 body:

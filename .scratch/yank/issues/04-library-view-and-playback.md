@@ -6,9 +6,13 @@
 
 **Status:** ready-for-agent
 
-- [ ] Library renders downloaded videos with thumbnails and metadata
-- [ ] Instant search by title/uploader; filter chips by source and status; sort options
-- [ ] Mini-player persists at bottom and expands to fullscreen player
-- [ ] Player controls: play/pause, seek ±10s, volume, fullscreen
-- [ ] Playing a multi-selection builds a temporary queue
-- [ ] "Open in external player" fallback for non-playable files
+- [x] Library renders downloaded videos with thumbnails and metadata
+- [x] Instant search by title/uploader; filter chips by source and status; sort options
+- [x] Mini-player persists at bottom and expands to fullscreen player
+- [x] Player controls: play/pause, seek ±10s, volume, fullscreen
+- [x] Playing a multi-selection builds a temporary queue
+- [ ] "Open in external player" fallback for non-playable files (matters for the Original format)
+
+## Comments
+
+- 2026-11-04 (daniel/finish-yank): Search (title/channel, accent-insensitive), source and status filters, sort by date/title/duration/playlist order. Done except the external-player fallback.

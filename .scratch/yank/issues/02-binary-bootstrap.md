@@ -6,8 +6,13 @@
 
 **Status:** ready-for-agent
 
-- [ ] Detect bundled and system yt-dlp/ffmpeg on startup
+- [x] Detect system yt-dlp/ffmpeg/deno at startup, outside the Finder PATH (ADR 0005)
+- [x] Resolve absolute paths once and pass them to every yt-dlp call
+- [ ] Bundle yt-dlp and ffmpeg with the app (ADR 0003, superseded for now)
 - [ ] Download yt-dlp release when missing, with progress UI
-- [ ] Store binary paths in settings
 - [ ] Auto-check GitHub releases for yt-dlp updates on launch
 - [ ] Surface bootstrap errors with retry
+
+## Comments
+
+- 2026-11-04 (daniel/finish-yank): Uses the user's own yt-dlp/ffmpeg/deno, found outside PATH (ADR 0005); Settings › Tools shows them with install hints. Downloading, bundling and auto-updating yt-dlp is still open.

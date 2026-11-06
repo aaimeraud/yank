@@ -6,8 +6,12 @@
 
 **Status:** ready-for-agent
 
-- [ ] Source derived from extractor during download and stored
+- [x] Source derived from the extractor during download and stored
 - [ ] Manual override control on video/playlist detail
-- [ ] Source filter chips filter Library
-- [ ] Source-branded placeholder thumbnail when missing
-- [ ] Unknown extractors map to "Other"
+- [x] Source filter chips filter Library
+- [x] Source-branded placeholder thumbnail when missing
+- [x] Unknown extractors map to "Other"
+
+## Comments
+
+- 2026-11-04 (daniel/finish-yank): Source chips (YouTube, X, Twitch, Other) filter the Library; placeholder thumbnails show the source logo. Manual override is still open.

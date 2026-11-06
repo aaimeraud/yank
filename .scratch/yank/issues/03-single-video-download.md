@@ -4,11 +4,11 @@
 
 **Blocked by:** 01, 02
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] URL input creates a queue item and starts download
-- [ ] yt-dlp spawned with MP4 format selection and --newline progress template
-- [ ] Progress events reach frontend and update the queue item
-- [ ] File saved under downloads folder using naming template
-- [ ] Library entry created with title, uploader, duration, thumbnail, source, url, file path
-- [ ] Failed downloads marked failed with short reason
+- [x] URL input creates a queue item and starts download
+- [x] yt-dlp spawned with MP4 format selection and `--newline` progress template
+- [x] Progress events reach frontend and update the queue item
+- [x] File saved under downloads folder using naming template
+- [x] Library entry created with title, uploader, duration, thumbnail, source, url, file path
+- [x] Failed downloads marked failed with short reason

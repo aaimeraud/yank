@@ -6,8 +6,12 @@
 
 **Status:** ready-for-agent
 
-- [ ] First-run onboarding flow with skip and re-run from Settings
+- [ ] First-run onboarding flow with skip and re-run from Settings (today: default folder, Settings covers the rest)
 - [ ] Menu-bar background mode with active download badge
-- [ ] Quit confirmation when downloads active
-- [ ] Deletion offers "Remove from library" and "Delete file and entry"
-- [ ] Cookies.txt import in Settings and onboarding
+- [ ] Quit confirmation when downloads are active
+- [x] Deletion offers "Remove from library" (keeps the file) and "Delete file" (moves it to the Trash)
+- [x] Cookies.txt import in Settings
+
+## Comments
+
+- 2026-11-04 (daniel/finish-yank): Deletion semantics done (Remove from library vs Delete file). Downloads default to ~/Movies/Yank so first launch works without onboarding, but the onboarding flow itself and menu-bar mode are still open.

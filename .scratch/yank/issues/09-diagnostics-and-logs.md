@@ -6,9 +6,14 @@
 
 **Status:** ready-for-agent
 
-- [ ] Error badge and expandable details with yt-dlp stderr tail
-- [ ] "Copy diagnostics" copies relevant info to clipboard
-- [ ] Global log file written under ~/Library/Logs/Yank/
-- [ ] Right-click context menu: Play, Reveal in Finder, Copy URL, Re-download, Remove/Delete
-- [ ] Keyboard shortcuts for play/pause, seek, volume, fullscreen
-- [ ] Bulk select with bulk delete/re-download/reveal and selection count
+- [x] Error badge and expandable details with yt-dlp stderr tail
+- [x] "Copy diagnostics" copies relevant info to clipboard
+- [x] Global log file written under `~/Library/Logs/com.yank.app/yank.log`
+- [x] Right-click context menu: Play next, Add to queue, Show in Finder, Copy link, Move, Remove, Delete
+- [x] Keyboard shortcuts for play/pause, seek, volume, mute, fullscreen, queue, mini player, next/previous
+- [x] Bulk select with bulk move, remove and delete, and a selection count
+- [ ] Re-download action for an existing video (today: Delete, then Download again)
+
+## Comments
+
+- 2026-11-04 (daniel/finish-yank): Error headline + expandable stderr tail + Copy diagnostics; log at ~/Library/Logs/com.yank.app/yank.log (Settings › Tools › Logs). Context menu has Play next, Add to queue, Show in Finder, Copy link, Move, Remove, Delete; right-click opens it. Re-download is still open.

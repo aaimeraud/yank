@@ -1,6 +1,7 @@
 name: UI fix
 description: Report a visual or usability problem
 title: "fix(ui): "
+assignees: "aaimeraud"
 labels:
   - ui
 body:

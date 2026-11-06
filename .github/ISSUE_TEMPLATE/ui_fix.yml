@@ -1,6 +1,6 @@
 name: UI fix
 description: Report a visual or usability problem
-title: "[UI] "
+title: "fix(ui): "
 labels:
   - ui
 body:

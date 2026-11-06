@@ -1,6 +1,6 @@
 name: New feature
 description: Suggest a feature that does not exist yet
-title: "[Feature] "
+title: "feat: "
 labels:
   - enhancement
 body:

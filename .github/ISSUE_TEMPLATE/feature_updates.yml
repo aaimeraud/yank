@@ -1,6 +1,6 @@
 name: Feature update
 description: Suggest an improvement to an existing feature
-title: "[Update] "
+title: "update(feat): "
 labels:
   - enhancement
 body:

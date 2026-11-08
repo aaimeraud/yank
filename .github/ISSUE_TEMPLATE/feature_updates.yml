@@ -3,7 +3,7 @@ description: Suggest an improvement to an existing feature
 title: "update(feat): "
 assignees: "aaimeraud"
 labels:
-  - enhancement
+  - feature-enhancement
 body:
   - type: input
     id: feature

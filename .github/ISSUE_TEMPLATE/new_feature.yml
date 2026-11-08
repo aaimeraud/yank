@@ -3,7 +3,7 @@ description: Suggest a feature that does not exist yet
 title: "feat: "
 assignees: "aaimeraud"
 labels:
-  - enhancement
+  - new-feature
 body:
   - type: textarea
     id: feature

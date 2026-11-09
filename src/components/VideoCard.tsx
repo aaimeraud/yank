@@ -11,6 +11,8 @@ import SourceIcon from "./SourceIcon";
 export interface CardActions {
   play: (video: Video) => void;
   download: (video: Video) => void;
+  /** Replace the file with a fresh download; the old one goes to the Trash. */
+  redownload: (video: Video) => void;
   playNext: (video: Video) => void;
   queue: (video: Video) => void;
   reveal: (video: Video) => void;
@@ -182,6 +184,15 @@ function CardMenu({ video, folders, open, onOpenChange, actions }: MenuProps) {
     action();
   };
 
+  const redownload = async () => {
+    onOpenChange(false);
+    const ok = await confirmAction(
+      `Move the file of "${displayTitle(video)}" to the Trash and download it again?`,
+      { okLabel: "Download again", destructive: true },
+    );
+    if (ok) actions.redownload(video);
+  };
+
   const remove = async (deleteFile: boolean) => {
     onOpenChange(false);
     if (deleteFile) {
@@ -212,6 +223,7 @@ function CardMenu({ video, folders, open, onOpenChange, actions }: MenuProps) {
               <button role="menuitem" onClick={pick(() => actions.playNext(video))}>Play next</button>
               <button role="menuitem" onClick={pick(() => actions.queue(video))}>Add to queue</button>
               <button role="menuitem" onClick={pick(() => actions.reveal(video))}>Show in Finder</button>
+              <button role="menuitem" onClick={() => void redownload()}>Download again…</button>
             </>
           )}
           {!downloaded && (

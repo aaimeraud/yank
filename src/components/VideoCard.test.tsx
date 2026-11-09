@@ -17,6 +17,7 @@ const noop = () => {};
 const actions = {
   play: noop,
   download: noop,
+  redownload: noop,
   playNext: noop,
   queue: noop,
   reveal: noop,
@@ -77,5 +78,28 @@ describe("the video card menu", () => {
     const selecting = container.firstElementChild as HTMLElement;
     expect(selecting.className).not.toContain("menu-open");
     expect(selecting.querySelector('[role="menu"]')).toBeNull();
+  });
+});
+
+function menuLabels(container: HTMLElement): string[] {
+  return Array.from(container.querySelectorAll('[role="menuitem"]')).map((item) => item.textContent ?? "");
+}
+
+describe("download again", () => {
+  // Regression: the action only makes sense for a video that has a file to
+  // replace; a missing one is offered Download instead.
+  test("is offered for a downloaded video, and not for a missing one", () => {
+    const downloaded = render(
+      <VideoCard video={makeVideo("v1", { file_path: "/library/v1.mp4" })} index={0} download={null} playing={false} folders={[]} selecting={false} selected={false} onToggleSelect={noop} actions={actions} />,
+    );
+    fireEvent.contextMenu(downloaded.container.firstElementChild as HTMLElement);
+    expect(menuLabels(downloaded.container)).toContain("Download again…");
+    downloaded.unmount();
+
+    const missing = render(
+      <VideoCard video={makeVideo("v1", { file_path: null })} index={0} download={null} playing={false} folders={[]} selecting={false} selected={false} onToggleSelect={noop} actions={actions} />,
+    );
+    fireEvent.contextMenu(missing.container.firstElementChild as HTMLElement);
+    expect(menuLabels(missing.container)).not.toContain("Download again…");
   });
 });

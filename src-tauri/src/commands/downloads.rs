@@ -32,6 +32,17 @@ pub async fn download_video(
     manager.download_video(&video_id, format).await
 }
 
+/// Replace a library video's file with a fresh download. The old file goes
+/// to the Trash first (see `DownloadManager::redownload_video`).
+#[tauri::command]
+pub async fn redownload_video(
+    manager: Manager<'_>,
+    video_id: String,
+    format: Option<Format>,
+) -> AppResult<()> {
+    manager.redownload_video(&video_id, format).await
+}
+
 #[tauri::command]
 pub async fn list_queue(manager: Manager<'_>) -> AppResult<Vec<QueueEntry>> {
     queue::list(manager.pool()).await

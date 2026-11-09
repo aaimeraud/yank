@@ -45,6 +45,8 @@ export const api = {
     invoke<EnqueueSummary>("enqueue_url", { url, format, fromSearch }),
   downloadVideo: (videoId: string, format: Format | null = null) =>
     invoke<void>("download_video", { videoId, format }),
+  redownloadVideo: (videoId: string, format: Format | null = null) =>
+    invoke<void>("redownload_video", { videoId, format }),
   listQueue: () => invoke<QueueEntry[]>("list_queue"),
   pauseDownload: (queueId: string) => invoke<void>("pause_download", { queueId }),
   resumeDownload: (queueId: string) => invoke<void>("resume_download", { queueId }),

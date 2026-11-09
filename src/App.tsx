@@ -158,6 +158,13 @@ export default function App() {
     }
   };
 
+  const redownloadVideo = async (video: Video) => {
+    if (await succeeds(() => api.redownloadVideo(video.id))) {
+      notify.info(`Downloading "${video.title}" again.`);
+      await Promise.all([library.refresh(), downloads.refresh()]);
+    }
+  };
+
   const removeVideos = async (ids: string[], deleteFile: boolean) => {
     if (!(await library.removeVideos(ids, deleteFile))) return false;
     player.forget(ids);
@@ -170,6 +177,7 @@ export default function App() {
   const libraryActions: LibraryActions = {
     play: (video) => void playFromLibrary(video),
     download: (video) => void downloadMissing(video),
+    redownload: (video) => void redownloadVideo(video),
     playNext: (video) => {
       player.playNext(video);
       notify.info(`"${video.title}" plays next.`);

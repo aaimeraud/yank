@@ -61,6 +61,7 @@ pub fn run() {
             commands::library::reveal_video,
             commands::downloads::enqueue_url,
             commands::downloads::download_video,
+            commands::downloads::redownload_video,
             commands::downloads::list_queue,
             commands::downloads::pause_download,
             commands::downloads::resume_download,

@@ -376,3 +376,38 @@ async fn a_url_without_a_format_uses_the_settings_default() {
     assert_eq!(rows.len(), 2);
     assert!(rows.iter().all(|row| row.format.as_deref() == Some("audio")), "{rows:?}");
 }
+
+/// Re-downloading takes the old file and thumbnail out of the folder first,
+/// so yt-dlp writes the new file instead of skipping it, then records the
+/// new one. Regression: without the trash step yt-dlp kept the old file.
+#[tokio::test]
+async fn redownloading_trashes_the_old_file_and_downloads_again() {
+    let h = Harness::new("redownload", 0, "").await;
+    let old = h.dir.join("old.mp4");
+    let old_thumb = h.dir.join("old.jpg");
+    std::fs::write(&old, b"damaged").unwrap();
+    std::fs::write(&old_thumb, b"thumb").unwrap();
+    video(h.manager.pool(), "v1", Some(old.to_str().unwrap())).await;
+
+    h.manager.redownload_video("v1", None).await.unwrap();
+    wait_done(&h.manager, Duration::from_secs(10)).await;
+
+    assert!(!old.exists(), "old file should have left the folder");
+    assert!(!old_thumb.exists(), "old thumbnail should have left the folder");
+    let video = videos::get(h.manager.pool(), "v1").await.unwrap();
+    let path = video.file_path.expect("new file recorded");
+    assert_eq!(Path::new(&path), h.dir.join("fake.mp4"));
+    assert!(Path::new(&path).exists());
+}
+
+/// A video whose download is running cannot be replaced under it.
+#[tokio::test]
+async fn redownloading_refuses_while_a_download_is_running() {
+    let h = Harness::new("redownload-busy", 99, "ERROR: Unsupported URL").await;
+    video(h.manager.pool(), "v1", None).await;
+    // A queued row counts as running: it is about to start yt-dlp.
+    queue::insert(h.manager.pool(), "v1", "https://example.com/v1", Format::Video).await.unwrap();
+
+    let err = h.manager.redownload_video("v1", None).await.unwrap_err();
+    assert!(err.to_string().contains("Cancel this download"), "{err}");
+}

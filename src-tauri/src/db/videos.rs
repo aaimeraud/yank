@@ -209,6 +209,22 @@ pub async fn remove_many(pool: &SqlitePool, ids: &[String], delete_file: bool) -
     }
 }
 
+/// Forget a video's file and thumbnail, leaving the row in the library as a
+/// video to download again. The caller has already dealt with the files.
+/// downloaded_at stays: it records that this video was downloaded once,
+/// which is what keeps queue cleanup from treating the row as a
+/// never-finished download and deleting it (queue.rs).
+pub async fn forget_file(pool: &SqlitePool, id: &str) -> AppResult<()> {
+    sqlx::query(
+        "UPDATE videos SET file_path = NULL, file_size = NULL, thumbnail_path = NULL \
+         WHERE id = ?",
+    )
+    .bind(id)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 /// Forget the file of every listed row whose file is gone from disk, so the
 /// library offers a fresh download instead of a player that fails silently.
 /// Returns the ids that were cleared.
@@ -227,16 +243,7 @@ pub async fn clear_missing_files(pool: &SqlitePool, ids: &[String]) -> AppResult
             if Path::new(&path).is_file() {
                 continue;
             }
-            // downloaded_at stays: it records that this video was downloaded
-            // once, which is what keeps queue cleanup from treating the row
-            // as a never-finished download and deleting it (queue.rs).
-            sqlx::query(
-                "UPDATE videos SET file_path = NULL, file_size = NULL, thumbnail_path = NULL \
-                 WHERE id = ?",
-            )
-            .bind(&id)
-            .execute(pool)
-            .await?;
+            forget_file(pool, &id).await?;
             cleared.push(id);
         }
     }

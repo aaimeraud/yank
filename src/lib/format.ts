@@ -1,5 +1,13 @@
 // Turning raw numbers into the short labels the UI shows.
 
+/** 87_293_859 -> "87.3 MB", in decimal units like Finder. */
+export function formatBytes(bytes: number): string {
+  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(2)} GB`;
+  if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(1)} MB`;
+  if (bytes >= 1e3) return `${Math.round(bytes / 1e3)} KB`;
+  return `${Math.max(0, Math.round(bytes))} B`;
+}
+
 /** 75 -> "1:15", 3725 -> "1:02:05". Junk and negatives read as 0:00. */
 export function formatClock(seconds: number | null | undefined): string {
   const total = Number.isFinite(seconds) && seconds! > 0 ? Math.floor(seconds!) : 0;

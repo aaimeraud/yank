@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Format, QueueEntry } from "../types";
 import { looksLikeUrl } from "../lib/enqueue";
-import { FORMAT_OPTIONS, urlBoxFormat } from "../lib/downloadFormats";
+import { CHOOSE_QUALITY, FORMAT_OPTIONS, urlBoxFormat } from "../lib/downloadFormats";
 import { intakeSummary } from "../lib/queueGroups";
 import Brand from "./Brand";
 import SourceIcon from "./SourceIcon";
@@ -18,6 +18,8 @@ interface Props {
    * settings load cannot fall back to the wrong format.
    */
   onSubmit: (url: string, format: Format | null) => Promise<boolean>;
+  /** Opens the quality picker. Resolves to true once a download was queued. */
+  onChooseQuality: (url: string) => Promise<boolean>;
   onOpenDownloads: () => void;
 }
 
@@ -26,20 +28,21 @@ interface Props {
  * box (the app's main job, one click from every screen) and the intake, a
  * live view of what is downloading right now.
  */
-export default function TopBar({ queue, defaultFormat, onSubmit, onOpenDownloads }: Props) {
+export default function TopBar({ queue, defaultFormat, onSubmit, onChooseQuality, onOpenDownloads }: Props) {
   return (
     <header className="topbar" data-tauri-drag-region>
       <Brand />
-      <UrlBox defaultFormat={defaultFormat} onSubmit={onSubmit} />
+      <UrlBox defaultFormat={defaultFormat} onSubmit={onSubmit} onChooseQuality={onChooseQuality} />
       <Intake queue={queue} onOpen={onOpenDownloads} />
     </header>
   );
 }
 
-function UrlBox({ defaultFormat, onSubmit }: Pick<Props, "defaultFormat" | "onSubmit">) {
+function UrlBox({ defaultFormat, onSubmit, onChooseQuality }: Pick<Props, "defaultFormat" | "onSubmit" | "onChooseQuality">) {
   const [url, setUrl] = useState("");
   // null follows the default from Settings until the user picks one here.
   const [format, setFormat] = useState<Format | null>(null);
+  const [choosing, setChoosing] = useState(false);
   const [busy, setBusy] = useState(false);
   const valid = looksLikeUrl(url);
   const shownFormat = urlBoxFormat(format, defaultFormat);
@@ -48,7 +51,8 @@ function UrlBox({ defaultFormat, onSubmit }: Pick<Props, "defaultFormat" | "onSu
     if (!valid || busy) return;
     setBusy(true);
     try {
-      if (await onSubmit(url.trim(), shownFormat.send)) setUrl("");
+      const queued = choosing ? await onChooseQuality(url.trim()) : await onSubmit(url.trim(), shownFormat.send);
+      if (queued) setUrl("");
     } finally {
       setBusy(false);
     }
@@ -75,8 +79,12 @@ function UrlBox({ defaultFormat, onSubmit }: Pick<Props, "defaultFormat" | "onSu
         />
         <select
           aria-label="Format"
-          value={shownFormat.shown}
-          onChange={(event) => setFormat(event.target.value as Format)}
+          value={choosing ? CHOOSE_QUALITY : shownFormat.shown}
+          onChange={(event) => {
+            const picked = event.target.value;
+            setChoosing(picked === CHOOSE_QUALITY);
+            if (picked !== CHOOSE_QUALITY) setFormat(picked as Format);
+          }}
           disabled={busy}
         >
           {shownFormat.shown === "" && (
@@ -89,6 +97,7 @@ function UrlBox({ defaultFormat, onSubmit }: Pick<Props, "defaultFormat" | "onSu
               {option.short}
             </option>
           ))}
+          <option value={CHOOSE_QUALITY}>Choose quality…</option>
         </select>
       </label>
       <button type="submit" className="primary" disabled={!valid || busy}>

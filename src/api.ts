@@ -9,6 +9,7 @@ import type {
   Folder,
   Format,
   ProgressEvent,
+  QualityChoice,
   QueueEntry,
   SearchKind,
   SearchPage,

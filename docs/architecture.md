@@ -136,6 +136,10 @@ still skips the question, for the same reason.
 
 ## Where it could break
 
+- **The sizes in the quality picker drift from the file.** `ytdlp/qualities.rs`
+  walks the same selectors as `ytdlp/args.rs` to find which streams a choice
+  downloads. The ignored live test compares the two against yt-dlp itself.
+
 - **yt-dlp changes its JSON or print fields.** `ytdlp/info.rs` reads a handful
   of fields with fallbacks; `ytdlp/output.rs` only depends on templates we
   pass. The ignored live tests catch this: run `cargo test -- --ignored`

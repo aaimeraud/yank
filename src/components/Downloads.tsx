@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../api";
 import { copyText } from "../lib/clipboard";
 import { displayTitle } from "../lib/display";
+import { formatTag } from "../lib/downloadFormats";
 import { formatTransfer } from "../lib/format";
 import { attempt, notify } from "../lib/notify";
 import {
@@ -171,7 +172,7 @@ function rowMeta(entry: QueueEntry): string {
     case "paused":
       return "Resumes where it left off";
     case "done":
-      return entry.format === "audio" ? "Audio" : "";
+      return formatTag(entry.format);
     default:
       return "";
   }

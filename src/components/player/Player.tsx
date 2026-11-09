@@ -185,6 +185,7 @@ export default function Player(props: Props) {
             onReveal={props.onReveal}
             onCopyLink={props.onCopyLink}
             onDownload={props.onDownload}
+            onChooseQuality={props.onChooseQuality}
           />
         </>
       )}
@@ -220,10 +221,11 @@ interface InfoProps {
   onReveal: () => void;
   onCopyLink: () => void;
   onDownload: (() => void) | null;
+  onChooseQuality: (() => void) | null;
 }
 
 /** Under the controls: the title, where it comes from, and what plays next. */
-function VideoInfo({ video, source, nextVideo, onNext, onReveal, onCopyLink, onDownload }: InfoProps) {
+function VideoInfo({ video, source, nextVideo, onNext, onReveal, onCopyLink, onDownload, onChooseQuality }: InfoProps) {
   const meta = [
     video.uploader ?? "Unknown",
     source.isLive ? "Live" : formatDuration(video.duration),
@@ -245,6 +247,7 @@ function VideoInfo({ video, source, nextVideo, onNext, onReveal, onCopyLink, onD
               <DownloadsIcon /> Download
             </button>
           )}
+          {source.streaming && onChooseQuality && <button onClick={onChooseQuality}>Choose quality…</button>}
           {!source.streaming && (
             <button onClick={onReveal}>
               <FinderIcon /> Show in Finder
@@ -289,6 +292,8 @@ function useShortcuts(enabled: boolean, actions: Shortcuts) {
   useEffect(() => {
     if (!enabled) return;
     const onKey = (event: KeyboardEvent) => {
+      // A dialog is open over the player: the keys belong to it.
+      if (document.querySelector("[aria-modal='true']")) return;
       const target = event.target as HTMLElement | null;
       if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
       if (event.metaKey || event.ctrlKey || event.altKey) return;

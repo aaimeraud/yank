@@ -4,7 +4,15 @@ use super::Manager;
 use crate::db::queue;
 use crate::downloads::diagnostics;
 use crate::error::AppResult;
-use crate::models::{EnqueueSummary, Format, QueueEntry, QueueStatus};
+use crate::models::{EnqueueSummary, Format, QualityChoice, QueueEntry, QueueStatus};
+use crate::ytdlp::qualities;
+
+/// What `url` can be downloaded as, with the disk space of each choice.
+#[tauri::command]
+pub async fn list_qualities(manager: Manager<'_>, url: String) -> AppResult<QualityChoice> {
+    let cookies = manager.settings().await.cookies_path;
+    qualities::list(manager.toolchain(), url.trim(), cookies.as_deref()).await
+}
 
 /// Download whatever the URL points to: one video, or every entry of a
 /// playlist/channel. `format` overrides the default from Settings.

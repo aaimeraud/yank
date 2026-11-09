@@ -16,6 +16,7 @@ import YouTube from "./components/youtube/YouTube";
 import type { HitActions } from "./components/youtube/ResultCard";
 import QueuePanel from "./components/QueuePanel";
 import Toasts from "./components/Toasts";
+import QualityPicker from "./components/QualityPicker";
 import Player from "./components/player/Player";
 import { useSettings } from "./hooks/useSettings";
 import { useLibrary } from "./hooks/useLibrary";
@@ -63,6 +64,8 @@ export default function App() {
   // Downloads asked for and not answered yet (listing a URL takes seconds):
   // a second click on the same one is ignored instead of listing it again.
   const pendingDownloads = useRef(new Set<string>());
+  // The URL whose qualities are on screen, and what to do with the answer.
+  const [picking, setPicking] = useState<{ url: string; resolve: (format: Format | null) => void } | null>(null);
 
   // The player screen with nothing in it (the video left the library):
   // back to where it was opened from, so a later play does not pop it up.
@@ -103,6 +106,22 @@ export default function App() {
     await Promise.all([library.refresh(), downloads.refresh()]);
     if (openDownloads && summary.is_playlist && summary.queued > 0) navigate("downloads");
     return true;
+  };
+
+  /** Ask which quality to download; null when the picker was dismissed. */
+  const askQuality = (url: string) =>
+    // One picker at a time: a second request answers "dismissed" at once,
+    // so whoever asked is never left waiting.
+    picking
+      ? Promise.resolve(null)
+      : new Promise<Format | null>((resolve) => {
+          setPicking({ url, resolve });
+        });
+
+  /** Open the picker for `url` and queue the choice. True when it was queued. */
+  const chooseQuality = async (url: string, openDownloads = true, fromSearch = false) => {
+    const format = await askQuality(url);
+    return format ? submitUrl(url, format, openDownloads, fromSearch) : false;
   };
 
   /**
@@ -146,6 +165,11 @@ export default function App() {
       const blocked = downloadBlocker(hit);
       if (blocked) notify.error(blocked);
       else void submitUrl(hit.url, format, false, true);
+    },
+    chooseQuality: (hit) => {
+      const blocked = downloadBlocker(hit);
+      if (blocked) notify.error(blocked);
+      else void chooseQuality(hit.url, false, true);
     },
     copyLink: (hit) =>
       void attempt(() => copyText(hit.url)).then((done) => done !== undefined && notify.info("Link copied.")),
@@ -216,6 +240,7 @@ export default function App() {
         queue={downloads.queue}
         defaultFormat={settings.settings?.default_format ?? null}
         onSubmit={submitUrl}
+        onChooseQuality={(url) => chooseQuality(url)}
         onOpenDownloads={() => navigate("downloads")}
       />
       <div className="workspace">

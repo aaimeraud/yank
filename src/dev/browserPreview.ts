@@ -154,6 +154,18 @@ const handlers: Record<string, (args: Record<string, unknown>) => unknown> = {
   toolchain_info: () => toolchain,
   enqueue_url: () => ({ title: "Sample Playlist", is_playlist: true, queued: 9, skipped: 6 }),
   download_diagnostics: () => "Yank (browser preview)",
+  list_qualities: () =>
+    later({
+      title: "A sample video with every kind of quality",
+      is_playlist: false,
+      options: [
+        { format: "2160p", label: "2160p", detail: "AV1 · MP4", size: 722_716_000, approximate: false, plays_in_app: false },
+        { format: "1080p", label: "1080p", detail: "H.264 · MP4", size: 267_891_000, approximate: false, plays_in_app: true },
+        { format: "720p", label: "720p", detail: "H.264 · MP4", size: 160_796_000, approximate: true, plays_in_app: true },
+        { format: "360p", label: "360p", detail: "H.264 · MP4", size: null, approximate: false, plays_in_app: true },
+        { format: "audio", label: "Audio only", detail: "M4A", size: 30_767_000, approximate: false, plays_in_app: true },
+      ],
+    }),
   prune_missing_videos: () => [],
   search_youtube: ({ query, kind, page }) => {
     if (String(query).toLowerCase().includes("error")) {

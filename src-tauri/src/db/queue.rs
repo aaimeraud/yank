@@ -90,6 +90,12 @@ pub async fn ids_with_status(pool: &SqlitePool, status: QueueStatus) -> AppResul
     )
 }
 
+/// Downloads that quitting would interrupt. Paused ones lose nothing.
+pub async fn count_in_flight(pool: &SqlitePool) -> AppResult<i64> {
+    let sql = format!("SELECT COUNT(*) FROM queue_items WHERE status IN {RUNNING}");
+    Ok(sqlx::query_scalar(&sql).fetch_one(pool).await?)
+}
+
 /// True when this video already has a download that is not finished.
 pub async fn has_active(pool: &SqlitePool, video_id: &str) -> AppResult<bool> {
     let sql = format!("SELECT 1 FROM queue_items WHERE video_id = ? AND status IN {ACTIVE}");
@@ -307,6 +313,16 @@ mod tests {
         assert_eq!(entry.title, "Video v1");
         assert_eq!(entry.format.as_deref(), Some("audio"));
         assert!(has_active(&pool, "v1").await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn only_queued_and_downloading_rows_count_as_in_flight() {
+        let pool = test_pool().await;
+        for (id, status) in [("a", "queued"), ("b", "downloading"), ("c", "paused"), ("d", "done"), ("e", "failed")] {
+            video(&pool, id, None).await;
+            queue_row(&pool, &format!("q-{id}"), id, status).await;
+        }
+        assert_eq!(count_in_flight(&pool).await.unwrap(), 2);
     }
 
     #[tokio::test]

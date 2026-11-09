@@ -118,6 +118,13 @@ before it starts, and skips files that vanished. `player/usePlayback.ts`
 owns the element: it resumes where you stopped and saves the position every
 5 seconds and when the video changes.
 
+## Quitting (`lifecycle.rs`)
+
+The red button and Cmd+Q both go through `request_quit`, which asks first when
+downloads are queued or running. Cmd+Q needs our own menu item: the predefined
+one terminates the app without an event to intercept. A Dock Quit or a logout
+still skips the question, for the same reason.
+
 ## Startup (`lib.rs::start_backend`)
 
 1. Open `~/Library/Application Support/com.yank.app/yank.db` and run

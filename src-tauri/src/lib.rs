@@ -5,6 +5,7 @@
 //! - `ytdlp/`     how yt-dlp is found, invoked and parsed.
 //! - `db/`        SQLite access, one file per table.
 //! - `disk`       moving deleted files to the Trash.
+//! - `lifecycle`  asking before a quit that would stop downloads.
 //! - `settings`   user preferences with defaults.
 //! - `models`     types shared with the UI (`src/types.ts`).
 //!
@@ -15,6 +16,7 @@ mod db;
 mod disk;
 mod downloads;
 mod error;
+mod lifecycle;
 mod models;
 mod settings;
 mod ytdlp;
@@ -46,7 +48,19 @@ pub fn run() {
         .setup(|app| {
             let manager = tauri::async_runtime::block_on(start_backend(app.handle()))?;
             app.manage(manager);
+            lifecycle::install_menu(app.handle())?;
             Ok(())
+        })
+        .on_menu_event(|app, event| {
+            if event.id() == lifecycle::QUIT_MENU_ID {
+                lifecycle::request_quit(app.clone());
+            }
+        })
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                lifecycle::request_quit(window.app_handle().clone());
+            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::library::list_videos,

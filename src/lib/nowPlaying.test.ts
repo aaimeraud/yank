@@ -6,12 +6,14 @@ describe("nowPlaying", () => {
   test("shows the title, then the channel and where it comes from", () => {
     const info = nowPlaying(makeVideo("a", { title: "A talk", uploader: "A channel", source: "youtube" }));
     expect(info.title).toBe("A talk");
-    expect(info.artist).toBe("A channel · YouTube");
+    expect(info.artist).toBe("A channel");
+    expect(info.album).toBe("YouTube");
   });
 
-  test("without a channel, only the source", () => {
+  test("both halves are always filled, or macOS shows a stray dash", () => {
     const info = nowPlaying(makeVideo("a", { uploader: null, source: "youtube" }));
-    expect(info.artist).toBe("YouTube");
+    expect(info.artist).toBe("Unknown");
+    expect(info.album).toBe("YouTube");
   });
 
   test("a web thumbnail is passed as it is", () => {

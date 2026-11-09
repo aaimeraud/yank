@@ -16,13 +16,13 @@ export function useMediaSession(video: Video, playback: Transport, onNext: (() =
   const latest = useRef({ playback, onNext, onPrevious });
   latest.current = { playback, onNext, onPrevious };
 
-  const { title, artist, artwork } = nowPlaying(video);
+  const { title, artist, album, artwork } = nowPlaying(video);
   const art = artwork[0]?.src ?? "";
 
   useEffect(() => {
     if (!("mediaSession" in navigator) || typeof MediaMetadata === "undefined") return;
-    navigator.mediaSession.metadata = new MediaMetadata({ title, artist, artwork: art ? [{ src: art }] : [] });
-  }, [title, artist, art]);
+    navigator.mediaSession.metadata = new MediaMetadata({ title, artist, album, artwork: art ? [{ src: art }] : [] });
+  }, [title, artist, album, art]);
 
   const canNext = onNext !== null;
   useEffect(() => {

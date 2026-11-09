@@ -8,14 +8,20 @@ import type { Video } from "../types";
 export interface NowPlaying {
   title: string;
   artist: string;
+  album: string;
   artwork: { src: string }[];
 }
 
-/** Title on the first line; "Channel · YouTube" on the second. */
+/**
+ * Title on the first line; "Channel - YouTube" on the second. macOS writes
+ * that line as "artist - album" even when one half is empty, so both are
+ * always filled or a stray dash shows up.
+ */
 export function nowPlaying(video: Video): NowPlaying {
   return {
     title: displayTitle(video),
-    artist: [video.uploader, sourceLabel(video.source)].filter(Boolean).join(" · "),
+    artist: video.uploader || "Unknown",
+    album: sourceLabel(video.source),
     artwork: video.thumbnail_path ? [{ src: mediaSrc(video.thumbnail_path) }] : [],
   };
 }

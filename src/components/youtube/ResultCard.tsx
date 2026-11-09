@@ -15,6 +15,8 @@ export interface HitActions {
   playAll: (hit: SearchResult) => void;
   /** Null format: the default from Settings. */
   download: (hit: SearchResult, format: Format | null) => void;
+  /** Pick a resolution, seeing what each one takes on disk. */
+  chooseQuality: (hit: SearchResult) => void;
   copyLink: (hit: SearchResult) => void;
 }
 
@@ -204,6 +206,7 @@ function HitMenu({ hit, open, onOpenChange, canWatch, canDownload, actions }: Me
                   {option.label}
                 </button>
               ))}
+              <button role="menuitem" onClick={pick(() => actions.chooseQuality(hit))}>Choose quality…</button>
             </>
           )}
           <div className="menu-sep" />

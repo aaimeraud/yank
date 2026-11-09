@@ -96,6 +96,20 @@ pub enum Format {
     Audio,
     /// Whatever yt-dlp ranks best. May be WebM/MKV that the player cannot open.
     Original,
+    /// Above 1080p: YouTube has no H.264 there, so any codec is accepted.
+    #[serde(rename = "2160p")]
+    Max2160,
+    #[serde(rename = "1440p")]
+    Max1440,
+    /// From here down, H.264 MP4 like `Video`, with a height limit.
+    #[serde(rename = "1080p")]
+    Max1080,
+    #[serde(rename = "720p")]
+    Max720,
+    #[serde(rename = "480p")]
+    Max480,
+    #[serde(rename = "360p")]
+    Max360,
 }
 
 impl Format {
@@ -104,6 +118,12 @@ impl Format {
             Self::Video => "video",
             Self::Audio => "audio",
             Self::Original => "original",
+            Self::Max2160 => "2160p",
+            Self::Max1440 => "1440p",
+            Self::Max1080 => "1080p",
+            Self::Max720 => "720p",
+            Self::Max480 => "480p",
+            Self::Max360 => "360p",
         }
     }
 
@@ -113,9 +133,90 @@ impl Format {
         match raw {
             Some("audio") => Self::Audio,
             Some("original") => Self::Original,
+            Some("2160p") => Self::Max2160,
+            Some("1440p") => Self::Max1440,
+            Some("1080p") => Self::Max1080,
+            Some("720p") => Self::Max720,
+            Some("480p") => Self::Max480,
+            Some("360p") => Self::Max360,
             _ => Self::Video,
         }
     }
+
+    /// The height limit of a quality choice; None for the three kinds.
+    pub fn max_height(self) -> Option<u32> {
+        match self {
+            Self::Max2160 => Some(2160),
+            Self::Max1440 => Some(1440),
+            Self::Max1080 => Some(1080),
+            Self::Max720 => Some(720),
+            Self::Max480 => Some(480),
+            Self::Max360 => Some(360),
+            Self::Video | Self::Audio | Self::Original => None,
+        }
+    }
+
+    /// True for the choices that ask for H.264 and merge into an MP4.
+    pub fn prefers_h264(self) -> bool {
+        self == Self::Video || self.max_height().is_some_and(|height| height <= 1080)
+    }
+}
+
+#[cfg(test)]
+mod format_tests {
+    use super::Format;
+
+    #[test]
+    fn every_format_survives_the_trip_through_the_database() {
+        for format in [
+            Format::Video,
+            Format::Audio,
+            Format::Original,
+            Format::Max2160,
+            Format::Max1440,
+            Format::Max1080,
+            Format::Max720,
+            Format::Max480,
+            Format::Max360,
+        ] {
+            assert_eq!(Format::parse(Some(format.as_str())), format);
+            let wire = serde_json::to_string(&format).unwrap();
+            assert_eq!(wire, format!("\"{}\"", format.as_str()));
+        }
+    }
+
+    #[test]
+    fn h264_is_asked_for_up_to_1080p_only() {
+        assert!(Format::Video.prefers_h264());
+        assert!(Format::Max1080.prefers_h264());
+        assert!(!Format::Max1440.prefers_h264());
+        assert!(!Format::Audio.prefers_h264());
+        assert!(!Format::Original.prefers_h264());
+    }
+}
+
+/// One way to download a URL (`QualityOption` in `src/types.ts`).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct QualityOption {
+    /// What to send back to `enqueue_url`.
+    pub format: Format,
+    pub label: String,
+    /// Codec and container, as shown beside the label.
+    pub detail: String,
+    /// Bytes on disk; None when the site does not say.
+    pub size: Option<i64>,
+    /// The size is an estimate.
+    pub approximate: bool,
+    /// False when the built-in player may refuse the file (ADR 0002).
+    pub plays_in_app: bool,
+}
+
+/// What `list_qualities` answers (`QualityChoice` in `src/types.ts`).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct QualityChoice {
+    pub title: String,
+    pub is_playlist: bool,
+    pub options: Vec<QualityOption>,
 }
 
 /// One row of the Downloads view: the queue item joined with what the UI

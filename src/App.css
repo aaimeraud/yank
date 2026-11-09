@@ -744,10 +744,10 @@ button { cursor: pointer; }
   animation: player-in var(--medium) var(--ease-out) both;
 }
 .player.mini {
+  --mini-gap: 20px;
   position: fixed;
-  right: 20px;
-  bottom: 20px;
   z-index: 60;
+  touch-action: none;
   width: 380px;
   border-radius: 16px;
   background: var(--raised);
@@ -755,7 +755,27 @@ button { cursor: pointer; }
   box-shadow: 0 22px 50px rgba(0, 0, 0, 0.7);
   animation: mini-in var(--medium) var(--ease-out) both;
 }
-.app.queue-open .player.mini { right: calc(var(--queue-width) + 20px); }
+.player.mini[data-corner^="top"] { top: calc(var(--topbar-height) + var(--mini-gap)); }
+.player.mini[data-corner^="bottom"] { bottom: var(--mini-gap); }
+.player.mini[data-corner$="left"] { left: calc(var(--sidebar-width) + var(--mini-gap)); }
+.player.mini[data-corner$="right"] { right: var(--mini-gap); }
+.app.sidebar-collapsed .player.mini[data-corner$="left"] { left: calc(64px + var(--mini-gap)); }
+.player.mini.dragging { cursor: grabbing; user-select: none; }
+.player.mini.dragging video { pointer-events: none; }
+/* Grows from the corner it is anchored to; the picture stays where it is. */
+.player.mini .queue-panel {
+  position: static;
+  flex: none;
+  width: auto;
+  max-height: min(320px, calc(100vh - var(--topbar-height) - 330px));
+  border-left: 0;
+  border-top: 1px solid var(--rule);
+  background: transparent;
+  box-shadow: none;
+  animation: mini-queue-in var(--medium) var(--ease-out) both;
+}
+.player.mini .queue-panel-head { padding: 12px 10px 6px 14px; }
+.player.mini .queue-panel-body { flex: 0 1 auto; min-height: 0; padding: 0 6px 12px; }
 
 .player-stage {
   position: relative;
@@ -1041,6 +1061,56 @@ button { cursor: pointer; }
   font-size: var(--fs-small);
   font-weight: 600;
 }
+
+/* ---------------------------------------------------------------- quality picker */
+
+.dialog-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.6);
+}
+.dialog {
+  width: min(480px, 100%);
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  overflow-y: auto;
+  border-radius: 16px;
+  background: var(--raised);
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.7);
+}
+.dialog-head h2 { margin: 0; font-size: var(--fs-section); font-weight: 500; }
+.dialog-head p { margin: 4px 0 0; color: var(--faint); font-size: var(--fs-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dialog-loading { display: flex; align-items: center; gap: 10px; margin: 0; padding: 16px 0; color: var(--faint); }
+.dialog-error { margin: 0; color: var(--text); }
+.dialog-note { margin: 0; color: var(--faint); font-size: var(--fs-small); }
+.dialog-foot { display: flex; justify-content: flex-end; }
+.quality-list { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.quality-list button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+.quality-list button:hover, .quality-list button:focus-visible { background: var(--ground); }
+.quality-name { font-weight: 600; }
+.quality-detail { color: var(--faint); font-size: var(--fs-small); }
+.quality-size { font-variant-numeric: tabular-nums; }
 
 /* ---------------------------------------------------------------- queue panel */
 
@@ -1374,6 +1444,7 @@ button { cursor: pointer; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
 @keyframes breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 @keyframes player-in { from { opacity: 0; transform: scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes mini-queue-in { from { max-height: 0; opacity: 0; } }
 @keyframes mini-in { from { opacity: 0; transform: translateY(16px) scale(0.96); } to { opacity: 1; transform: none; } }
 @keyframes panel-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -1405,11 +1476,6 @@ button { cursor: pointer; }
   }
   .vv-info { flex-direction: column; }
   .vv-upnext { flex-basis: auto; width: 100%; max-width: 420px; }
-}
-
-@media (max-width: 800px) {
-  /* No room beside the floating queue: the mini player keeps its corner. */
-  .app.queue-open .player.mini { right: 20px; }
 }
 
 @media (max-width: 900px) {
@@ -1446,7 +1512,7 @@ button { cursor: pointer; }
   .queue-line { flex-wrap: wrap; }
   .meter { order: 3; flex: 1 1 100%; }
   .qactions, .qstatus { flex-basis: auto; }
-  .player.mini, .app.queue-open .player.mini { left: 12px; right: 12px; bottom: 12px; width: auto; }
+  .player.mini[data-corner], .app.sidebar-collapsed .player.mini[data-corner] { top: auto; left: 12px; right: 12px; bottom: 12px; width: auto; }
   :root { --queue-width: 100vw; }
   .sidebar.collapsed { width: 100%; }
   .sidebar-toggle { display: none; }

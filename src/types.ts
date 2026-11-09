@@ -5,7 +5,27 @@
 export type View = "library" | "youtube" | "downloads" | "settings" | "player";
 
 /** What yt-dlp is asked for. See ADR 0002. */
-export type Format = "video" | "audio" | "original";
+export type Format = "video" | "audio" | "original" | "2160p" | "1440p" | "1080p" | "720p" | "480p" | "360p";
+
+/** One way to download a URL (`QualityOption` in models.rs). */
+export interface QualityOption {
+  format: Format;
+  label: string;
+  /** Codec and container. */
+  detail: string;
+  /** Bytes on disk; null when the site does not say. */
+  size: number | null;
+  /** The size is an estimate. */
+  approximate: boolean;
+  /** False when the built-in player may refuse the file. */
+  plays_in_app: boolean;
+}
+
+export interface QualityChoice {
+  title: string;
+  is_playlist: boolean;
+  options: QualityOption[];
+}
 
 export interface Video {
   /** The id yt-dlp reports (a YouTube id, a tweet id...). */

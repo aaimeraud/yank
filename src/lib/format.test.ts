@@ -1,5 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { formatClock, formatDuration, formatEta, formatLongDuration, formatSpeed, formatTransfer, plural } from "./format";
+import { formatBytes, formatClock, formatDuration, formatEta, formatLongDuration, formatSpeed, formatTransfer, plural } from "./format";
+
+describe("formatBytes", () => {
+  test("uses the unit a size reads best in", () => {
+    expect(formatBytes(512)).toBe("512 B");
+    expect(formatBytes(45_300)).toBe("45 KB");
+    expect(formatBytes(87_293_859)).toBe("87.3 MB");
+    expect(formatBytes(1_362_269_481)).toBe("1.36 GB");
+  });
+});
 
 describe("formatClock", () => {
   test("minutes and hours", () => {

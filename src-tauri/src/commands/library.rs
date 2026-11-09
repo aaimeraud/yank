@@ -4,6 +4,7 @@ use super::Manager;
 use crate::db::{folders, videos};
 use crate::error::{AppError, AppResult};
 use crate::models::{Folder, Video};
+use tauri_plugin_opener::OpenerExt;
 
 #[tauri::command]
 pub async fn list_videos(manager: Manager<'_>) -> AppResult<Vec<Video>> {
@@ -69,6 +70,20 @@ pub async fn update_playback(
 #[tauri::command]
 pub async fn prune_missing_videos(manager: Manager<'_>, ids: Vec<String>) -> AppResult<Vec<String>> {
     videos::clear_missing_files(manager.pool(), &ids).await
+}
+
+/// Open the video's file in the default app for its type, for the files the
+/// built-in player cannot read. The path comes from the database, like
+/// `reveal_video`, so the UI cannot open arbitrary files.
+#[tauri::command]
+pub async fn open_video_externally(app: tauri::AppHandle, manager: Manager<'_>, video_id: String) -> AppResult<()> {
+    let video = videos::get(manager.pool(), &video_id).await?;
+    let path = video
+        .file_path
+        .ok_or_else(|| AppError::user("This video has not been downloaded yet."))?;
+    app.opener()
+        .open_path(path.clone(), None::<&str>)
+        .map_err(|e| AppError::user(format!("Could not open {path}: {e}")))
 }
 
 /// Show the video's file in Finder. The path comes from the database, never

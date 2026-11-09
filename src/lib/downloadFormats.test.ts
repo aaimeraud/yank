@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { urlBoxFormat } from "./downloadFormats";
+import { formatTag, urlBoxFormat } from "./downloadFormats";
 
 describe("urlBoxFormat", () => {
   test("sends nothing until the user picks, so the backend default applies", () => {
@@ -15,5 +15,14 @@ describe("urlBoxFormat", () => {
     expect(urlBoxFormat("original", "audio").shown).toBe("original");
     expect(urlBoxFormat(null, "audio").shown).toBe("audio");
     expect(urlBoxFormat(null, null).shown).toBe("");
+  });
+});
+
+describe("formatTag", () => {
+  test("names audio and height limits, and nothing else", () => {
+    expect(formatTag("audio")).toBe("Audio");
+    expect(formatTag("720p")).toBe("720p");
+    expect(formatTag("video")).toBe("");
+    expect(formatTag(null)).toBe("");
   });
 });

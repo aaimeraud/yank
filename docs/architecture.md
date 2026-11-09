@@ -118,6 +118,13 @@ before it starts, and skips files that vanished. `player/usePlayback.ts`
 owns the element: it resumes where you stopped and saves the position every
 5 seconds and when the video changes.
 
+## Quitting (`lifecycle.rs`)
+
+The red button and Cmd+Q both go through `request_quit`, which asks first when
+downloads are queued or running. Cmd+Q needs our own menu item: the predefined
+one terminates the app without an event to intercept. A Dock Quit or a logout
+still skips the question, for the same reason.
+
 ## Startup (`lib.rs::start_backend`)
 
 1. Open `~/Library/Application Support/com.yank.app/yank.db` and run
@@ -128,6 +135,10 @@ owns the element: it resumes where you stopped and saves the position every
 4. Find yt-dlp, ffmpeg and deno (`ytdlp/toolchain.rs`, ADR 0005).
 
 ## Where it could break
+
+- **The sizes in the quality picker drift from the file.** `ytdlp/qualities.rs`
+  walks the same selectors as `ytdlp/args.rs` to find which streams a choice
+  downloads. The ignored live test compares the two against yt-dlp itself.
 
 - **yt-dlp changes its JSON or print fields.** `ytdlp/info.rs` reads a handful
   of fields with fallbacks; `ytdlp/output.rs` only depends on templates we

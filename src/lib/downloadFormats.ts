@@ -9,6 +9,15 @@ export const FORMAT_OPTIONS: { value: Format; label: string; short: string }[] =
   { value: "original", label: "Original · best available", short: "Best quality" },
 ];
 
+/** The select entry that opens the quality picker instead of naming a format. */
+export const CHOOSE_QUALITY = "choose";
+
+/** What a finished download's row says about its format; empty for the default. */
+export function formatTag(format: string | null): string {
+  if (format === "audio") return "Audio";
+  return format && /^\d+p$/.test(format) ? format : "";
+}
+
 /**
  * The URL box's format: what it sends and what its select shows. It sends
  * only an explicit pick; null lets the backend apply the Settings default

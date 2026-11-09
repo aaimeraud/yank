@@ -16,6 +16,7 @@ import YouTube from "./components/youtube/YouTube";
 import type { HitActions } from "./components/youtube/ResultCard";
 import QueuePanel from "./components/QueuePanel";
 import Toasts from "./components/Toasts";
+import QualityPicker from "./components/QualityPicker";
 import Player from "./components/player/Player";
 import { useSettings } from "./hooks/useSettings";
 import { useLibrary } from "./hooks/useLibrary";
@@ -27,6 +28,7 @@ import { enqueueMessage } from "./lib/enqueue";
 import { attempt, errorMessage, notify, succeeds } from "./lib/notify";
 import { usePref } from "./lib/prefs";
 import { isActive, queueHeadline } from "./lib/queueGroups";
+import { queuePlacement } from "./lib/queuePlacement";
 import { PLAYER_ACTS, createGate, reporting } from "./lib/userActs";
 import { downloadBlocker, entryToHit, isLive, isUnavailable, streamTarget, watchBlocker } from "./lib/youtube";
 import "./App.css";
@@ -63,6 +65,8 @@ export default function App() {
   // Downloads asked for and not answered yet (listing a URL takes seconds):
   // a second click on the same one is ignored instead of listing it again.
   const pendingDownloads = useRef(new Set<string>());
+  // The URL whose qualities are on screen, and what to do with the answer.
+  const [picking, setPicking] = useState<{ url: string; resolve: (format: Format | null) => void } | null>(null);
 
   // The player screen with nothing in it (the video left the library):
   // back to where it was opened from, so a later play does not pop it up.
@@ -103,6 +107,22 @@ export default function App() {
     await Promise.all([library.refresh(), downloads.refresh()]);
     if (openDownloads && summary.is_playlist && summary.queued > 0) navigate("downloads");
     return true;
+  };
+
+  /** Ask which quality to download; null when the picker was dismissed. */
+  const askQuality = (url: string) =>
+    // One picker at a time: a second request answers "dismissed" at once,
+    // so whoever asked is never left waiting.
+    picking
+      ? Promise.resolve(null)
+      : new Promise<Format | null>((resolve) => {
+          setPicking({ url, resolve });
+        });
+
+  /** Open the picker for `url` and queue the choice. True when it was queued. */
+  const chooseQuality = async (url: string, openDownloads = true, fromSearch = false) => {
+    const format = await askQuality(url);
+    return format ? submitUrl(url, format, openDownloads, fromSearch) : false;
   };
 
   /**
@@ -146,6 +166,11 @@ export default function App() {
       const blocked = downloadBlocker(hit);
       if (blocked) notify.error(blocked);
       else void submitUrl(hit.url, format, false, true);
+    },
+    chooseQuality: (hit) => {
+      const blocked = downloadBlocker(hit);
+      if (blocked) notify.error(blocked);
+      else void chooseQuality(hit.url, false, true);
     },
     copyLink: (hit) =>
       void attempt(() => copyText(hit.url)).then((done) => done !== undefined && notify.info("Link copied.")),
@@ -208,7 +233,20 @@ export default function App() {
   const classes = ["app"];
   if (sidebarCollapsed) classes.push("sidebar-collapsed");
   if (playing && mode === "mini") classes.push("has-mini");
-  if (queueOpen) classes.push("queue-open");
+  const queueAt = queuePlacement(queueOpen, mode, Boolean(playing));
+  if (queueAt === "side") classes.push("queue-open");
+  const closeQueue = () => setQueueOpen(false);
+  const queuePanel = <QueuePanel player={player} onClose={closeQueue} onPlay={(video) => void playFromPanel(video)} />;
+  // Live and already-kept videos have nothing to download.
+  const canDownloadPlaying =
+    playing !== null &&
+    player.source.streaming &&
+    // Live is only certain once the lookup answered.
+    !player.source.loading &&
+    !player.source.error &&
+    !player.source.isLive &&
+    !downloadsByVideo.has(playing.id) &&
+    !libraryById.get(playing.id)?.file_path;
 
   return (
     <div className={classes.join(" ")}>
@@ -216,6 +254,7 @@ export default function App() {
         queue={downloads.queue}
         defaultFormat={settings.settings?.default_format ?? null}
         onSubmit={submitUrl}
+        onChooseQuality={(url) => chooseQuality(url)}
         onOpenDownloads={() => navigate("downloads")}
       />
       <div className="workspace">
@@ -313,28 +352,32 @@ export default function App() {
                 if (view === "player") navigate(lastScreen);
               }}
               onReveal={() => void attempt(() => api.revealVideo(playing.id))}
+              onOpenExternally={() => void attempt(() => api.openVideoExternally(playing.id))}
               onCopyLink={() => copyLink(playing)}
-              onDownload={
-                player.source.streaming &&
-                // Live is only certain once the lookup answered.
-                !player.source.loading &&
-                !player.source.error &&
-                !player.source.isLive &&
-                !downloadsByVideo.has(playing.id) &&
-                !libraryById.get(playing.id)?.file_path
-                  ? () => void submitUrl(playing.url, null, false, true)
-                  : null
-              }
+              onDownload={canDownloadPlaying ? () => void submitUrl(playing.url, null, false, true) : null}
+              onChooseQuality={canDownloadPlaying ? () => void chooseQuality(playing.url, false, true) : null}
+              miniQueue={queueAt === "mini" ? queuePanel : null}
               onRetryStream={player.retryStream}
               onStreamFailed={player.streamFailed}
             />
           )}
         </main>
-        {queueOpen && (
-          <QueuePanel player={player} onClose={() => setQueueOpen(false)} onPlay={(video) => void playFromPanel(video)} />
-        )}
+        {queueAt === "side" && queuePanel}
       </div>
       <Toasts />
+      {picking && (
+        <QualityPicker
+          url={picking.url}
+          onPick={(format) => {
+            picking.resolve(format);
+            setPicking(null);
+          }}
+          onCancel={() => {
+            picking.resolve(null);
+            setPicking(null);
+          }}
+        />
+      )}
     </div>
   );
 }

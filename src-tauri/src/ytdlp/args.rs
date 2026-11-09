@@ -20,14 +20,31 @@ pub struct DownloadRequest {
 
 /// Format selectors. `Video` prefers H.264 so WKWebView can play the file
 /// (ADR 0002); each `/` is a fallback when the site has no such stream.
-pub fn format_selector(format: Format) -> &'static str {
+///
+/// A height limit keeps the same preference up to 1080p. Above, H.264 does
+/// not exist on YouTube, so insisting on it would quietly deliver 1080p.
+/// The last `/best` keeps a download alive if the site changed its list
+/// after the size was shown. `ytdlp::qualities` mirrors these selectors to
+/// compute sizes: change both together.
+pub fn format_selector(format: Format) -> String {
     match format {
-        Format::Video => {
-            "bestvideo[vcodec^=avc1][ext=mp4]+bestaudio[ext=m4a]\
+        Format::Video => "bestvideo[vcodec^=avc1][ext=mp4]+bestaudio[ext=m4a]\
              /bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
+            .into(),
+        Format::Audio => "bestaudio[ext=m4a]/bestaudio".into(),
+        Format::Original => "bestvideo*+bestaudio/best".into(),
+        capped => {
+            let cap = capped.max_height().unwrap_or(u32::MAX);
+            let fit = format!("[height<={cap}]");
+            if capped.prefers_h264() {
+                format!(
+                    "bestvideo[vcodec^=avc1][ext=mp4]{fit}+bestaudio[ext=m4a]\
+                     /bestvideo[ext=mp4]{fit}+bestaudio[ext=m4a]/best[ext=mp4]{fit}/best{fit}/best"
+                )
+            } else {
+                format!("bestvideo*{fit}+bestaudio/best{fit}/best")
+            }
         }
-        Format::Audio => "bestaudio[ext=m4a]/bestaudio",
-        Format::Original => "bestvideo*+bestaudio/best",
     }
 }
 
@@ -59,9 +76,9 @@ fn escape_percent(text: &str) -> String {
 pub fn download_args(request: &DownloadRequest) -> Vec<String> {
     let mut args: Vec<String> = vec![
         "-f".into(),
-        format_selector(request.format).into(),
+        format_selector(request.format),
     ];
-    if request.format == Format::Video {
+    if request.format.prefers_h264() {
         args.extend(["--merge-output-format".into(), "mp4".into()]);
     }
     args.extend([
@@ -132,6 +149,24 @@ mod tests {
     }
 
     #[test]
+    fn a_height_limit_up_to_1080p_keeps_h264_and_the_mp4_merge() {
+        let args = download_args(&request(Format::Max720, None));
+        let selector = value_after(&args, "-f").unwrap();
+        assert!(selector.starts_with("bestvideo[vcodec^=avc1][ext=mp4][height<=720]+bestaudio[ext=m4a]/"));
+        assert!(selector.ends_with("/best[height<=720]/best"));
+        assert_eq!(value_after(&args, "--merge-output-format"), Some("mp4"));
+    }
+
+    #[test]
+    fn above_1080p_any_codec_is_accepted_and_nothing_forces_mp4() {
+        let args = download_args(&request(Format::Max2160, None));
+        let selector = value_after(&args, "-f").unwrap();
+        assert!(selector.starts_with("bestvideo*[height<=2160]+bestaudio/"));
+        assert!(!selector.contains("avc1"));
+        assert_eq!(value_after(&args, "--merge-output-format"), None);
+    }
+
+    #[test]
     fn video_downloads_merge_to_mp4_and_print_machine_lines() {
         let args = download_args(&request(Format::Video, None));
         assert_eq!(value_after(&args, "--merge-output-format"), Some("mp4"));
@@ -146,7 +181,7 @@ mod tests {
         for format in [Format::Audio, Format::Original] {
             let args = download_args(&request(format, None));
             assert_eq!(value_after(&args, "--merge-output-format"), None, "{format:?}");
-            assert_eq!(value_after(&args, "-f"), Some(format_selector(format)));
+            assert_eq!(value_after(&args, "-f"), Some(format_selector(format).as_str()));
         }
     }
 

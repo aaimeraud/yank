@@ -50,7 +50,7 @@ What the player plays next: the user's own queue first, then the rest of the Con
 The list of Videos playback was started from (a folder, as it was shown). Autoplay continues through it and the queue panel lists it as "Next from <folder>".
 
 **Mini player**:
-The player shrunk to the corner while another screen is open. Same video element, so playback continues.
+The player shrunk to a corner while another screen is open. Same video element, so playback continues. It can be dragged to any corner, and shows the queue under the picture.
 
 **Search Result** (hit):
 A video or playlist found on the YouTube screen. Not in the Library until downloaded; a video hit has the same id as its Library Video, which is how the screen marks hits already downloaded.

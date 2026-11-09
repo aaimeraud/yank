@@ -73,6 +73,8 @@ pub fn run() {
             commands::library::update_playback,
             commands::library::prune_missing_videos,
             commands::library::reveal_video,
+            commands::library::open_video_externally,
+            commands::downloads::list_qualities,
             commands::downloads::enqueue_url,
             commands::downloads::download_video,
             commands::downloads::list_queue,

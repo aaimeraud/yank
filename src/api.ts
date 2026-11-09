@@ -39,8 +39,12 @@ export const api = {
   /** Returns the ids whose file is gone (and were cleared). */
   pruneMissingVideos: (ids: string[]) => invoke<string[]>("prune_missing_videos", { ids }),
   revealVideo: (videoId: string) => invoke<void>("reveal_video", { videoId }),
+  /** Open the file in the default app for its type. */
+  openVideoExternally: (videoId: string) => invoke<void>("open_video_externally", { videoId }),
 
   // Downloads
+  /** The qualities a URL offers and what each takes on disk. */
+  listQualities: (url: string) => invoke<QualityChoice>("list_qualities", { url }),
   /** `fromSearch`: a hit from the YouTube screen; a live video is then refused (ADR 0010). */
   enqueueUrl: (url: string, format: Format | null, fromSearch = false) =>
     invoke<EnqueueSummary>("enqueue_url", { url, format, fromSearch }),

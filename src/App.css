@@ -744,10 +744,10 @@ button { cursor: pointer; }
   animation: player-in var(--medium) var(--ease-out) both;
 }
 .player.mini {
+  --mini-gap: 20px;
   position: fixed;
-  right: 20px;
-  bottom: 20px;
   z-index: 60;
+  touch-action: none;
   width: 380px;
   border-radius: 16px;
   background: var(--raised);
@@ -755,7 +755,27 @@ button { cursor: pointer; }
   box-shadow: 0 22px 50px rgba(0, 0, 0, 0.7);
   animation: mini-in var(--medium) var(--ease-out) both;
 }
-.app.queue-open .player.mini { right: calc(var(--queue-width) + 20px); }
+.player.mini[data-corner^="top"] { top: calc(var(--topbar-height) + var(--mini-gap)); }
+.player.mini[data-corner^="bottom"] { bottom: var(--mini-gap); }
+.player.mini[data-corner$="left"] { left: calc(var(--sidebar-width) + var(--mini-gap)); }
+.player.mini[data-corner$="right"] { right: var(--mini-gap); }
+.app.sidebar-collapsed .player.mini[data-corner$="left"] { left: calc(64px + var(--mini-gap)); }
+.player.mini.dragging { cursor: grabbing; user-select: none; }
+.player.mini.dragging video { pointer-events: none; }
+/* Grows from the corner it is anchored to; the picture stays where it is. */
+.player.mini .queue-panel {
+  position: static;
+  flex: none;
+  width: auto;
+  max-height: min(320px, calc(100vh - var(--topbar-height) - 330px));
+  border-left: 0;
+  border-top: 1px solid var(--rule);
+  background: transparent;
+  box-shadow: none;
+  animation: mini-queue-in var(--medium) var(--ease-out) both;
+}
+.player.mini .queue-panel-head { padding: 12px 10px 6px 14px; }
+.player.mini .queue-panel-body { flex: 0 1 auto; min-height: 0; padding: 0 6px 12px; }
 
 .player-stage {
   position: relative;
@@ -1424,6 +1444,7 @@ button { cursor: pointer; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: none; } }
 @keyframes breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 @keyframes player-in { from { opacity: 0; transform: scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes mini-queue-in { from { max-height: 0; opacity: 0; } }
 @keyframes mini-in { from { opacity: 0; transform: translateY(16px) scale(0.96); } to { opacity: 1; transform: none; } }
 @keyframes panel-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -1455,11 +1476,6 @@ button { cursor: pointer; }
   }
   .vv-info { flex-direction: column; }
   .vv-upnext { flex-basis: auto; width: 100%; max-width: 420px; }
-}
-
-@media (max-width: 800px) {
-  /* No room beside the floating queue: the mini player keeps its corner. */
-  .app.queue-open .player.mini { right: 20px; }
 }
 
 @media (max-width: 900px) {
@@ -1496,7 +1512,7 @@ button { cursor: pointer; }
   .queue-line { flex-wrap: wrap; }
   .meter { order: 3; flex: 1 1 100%; }
   .qactions, .qstatus { flex-basis: auto; }
-  .player.mini, .app.queue-open .player.mini { left: 12px; right: 12px; bottom: 12px; width: auto; }
+  .player.mini[data-corner], .app.sidebar-collapsed .player.mini[data-corner] { top: auto; left: 12px; right: 12px; bottom: 12px; width: auto; }
   :root { --queue-width: 100vw; }
   .sidebar.collapsed { width: 100%; }
   .sidebar-toggle { display: none; }

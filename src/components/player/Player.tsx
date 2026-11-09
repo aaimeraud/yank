@@ -1,15 +1,20 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Video } from "../../types";
 import type { PlayerMode, PlayerSource } from "../../hooks/usePlayer";
 import { mediaSrc } from "../../lib/media";
 import { displayTitle } from "../../lib/display";
 import { formatClock, formatDuration } from "../../lib/format";
+import { validCorner, type Corner } from "../../lib/miniCorner";
+import { usePref } from "../../lib/prefs";
 import { sourceLabel } from "../../lib/source";
 import SourceIcon from "../SourceIcon";
 import ThumbImage from "../ThumbImage";
 import { DownloadsIcon, FinderIcon, LinkIcon, PlayIcon } from "../icons";
 import Controls from "./Controls";
 import MiniBar from "./MiniBar";
+import ProblemOverlay from "./ProblemOverlay";
+import { useMediaSession } from "./useMediaSession";
+import { useMiniDrag } from "./useMiniDrag";
 import { usePlayback } from "./usePlayback";
 
 interface Props {
@@ -35,9 +40,15 @@ interface Props {
   onMinimize: () => void;
   onClose: () => void;
   onReveal: () => void;
+  /** Hand the file to the default app, when the player cannot read it. */
+  onOpenExternally: () => void;
   onCopyLink: () => void;
   /** Download what is streaming; null when that is not possible (a live). */
   onDownload: (() => void) | null;
+  /** Same, choosing the quality first. */
+  onChooseQuality: (() => void) | null;
+  /** The queue, shown under the mini player's controls while it is open. */
+  miniQueue: ReactNode;
   /** Resolve the stream again and resume at `position` seconds. */
   onRetryStream: (position: number) => void;
   /** The element gave up on the stream (true), or recovered by itself (false). */
@@ -62,6 +73,8 @@ export default function Player(props: Props) {
   }, [playback.failed, source.streaming]);
   const [fullscreen, setFullscreen] = useState(false);
   const idle = useIdle(fullscreen && playback.playing);
+  const [storedCorner, setCorner] = usePref<Corner>("miniCorner", "bottom-right");
+  useMiniDrag(shellRef, mode === "mini", setCorner);
 
   // Previous restarts the video once it has played a little, like every
   // music player; pressed again within 3 seconds it goes back.
@@ -69,6 +82,7 @@ export default function Player(props: Props) {
     if (playback.position > 3 || !props.canPrevious) playback.startOver();
     else props.onPrevious();
   };
+  useMediaSession(video, playback, props.nextVideo ? props.onNext : null, previous);
   const transport = {
     playback,
     canPrevious: props.canPrevious,
@@ -119,6 +133,7 @@ export default function Player(props: Props) {
     <div
       ref={shellRef}
       className={`player ${mode}` + (fullscreen ? " is-fullscreen" : "") + (idle ? " idle" : "")}
+      data-corner={mode === "mini" ? validCorner(storedCorner) : undefined}
       aria-label={mode === "mini" ? `Mini player: ${displayTitle(video)}` : undefined}
       role={mode === "mini" ? "region" : undefined}
     >
@@ -145,12 +160,13 @@ export default function Player(props: Props) {
           </div>
         )}
         {problem && (
-          <div className="vv-status vv-problem" role="alert">
-            {mode === "full" ? <span>{problem}</span> : <span>Stream stopped</span>}
-            {source.streaming && (
-              <button onClick={() => props.onRetryStream(playback.lastTime())}>Try again</button>
-            )}
-          </div>
+          <ProblemOverlay
+            mode={mode}
+            problem={problem}
+            streaming={source.streaming}
+            onRetry={() => props.onRetryStream(playback.lastTime())}
+            onOpenExternally={props.onOpenExternally}
+          />
         )}
         {playback.flash && <div className="vv-flash">{playback.flash}</div>}
         {mode === "full" && playback.resumedFrom !== null && (
@@ -166,14 +182,17 @@ export default function Player(props: Props) {
       </div>
 
       {mode === "mini" ? (
-        <MiniBar
-          video={video}
-          queueOpen={props.queueOpen}
-          onExpand={props.onExpand}
-          onClose={props.onClose}
-          onToggleQueue={props.onToggleQueue}
-          {...transport}
-        />
+        <>
+          <MiniBar
+            video={video}
+            queueOpen={props.queueOpen}
+            onExpand={props.onExpand}
+            onClose={props.onClose}
+            onToggleQueue={props.onToggleQueue}
+            {...transport}
+          />
+          {props.miniQueue}
+        </>
       ) : (
         <>
           {!fullscreen && <Controls {...transport} {...controlProps(props, toggleFullscreen, pictureInPicture)} />}
@@ -209,7 +228,7 @@ function controlProps(props: Props, fullscreen: () => void, pip: () => void) {
 
 /** What to say when the element gave up on its source. */
 function failureText(source: PlayerSource): string {
-  if (!source.streaming) return "This file cannot be played here. Show it in Finder to open it in another player.";
+  if (!source.streaming) return "This file cannot be played here.";
   return "The stream stopped. Its link may have expired, or the connection dropped.";
 }
 

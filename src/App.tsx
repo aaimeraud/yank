@@ -28,6 +28,7 @@ import { enqueueMessage } from "./lib/enqueue";
 import { attempt, errorMessage, notify, succeeds } from "./lib/notify";
 import { usePref } from "./lib/prefs";
 import { isActive, queueHeadline } from "./lib/queueGroups";
+import { queuePlacement } from "./lib/queuePlacement";
 import { PLAYER_ACTS, createGate, reporting } from "./lib/userActs";
 import { downloadBlocker, entryToHit, isLive, isUnavailable, streamTarget, watchBlocker } from "./lib/youtube";
 import "./App.css";
@@ -232,7 +233,20 @@ export default function App() {
   const classes = ["app"];
   if (sidebarCollapsed) classes.push("sidebar-collapsed");
   if (playing && mode === "mini") classes.push("has-mini");
-  if (queueOpen) classes.push("queue-open");
+  const queueAt = queuePlacement(queueOpen, mode, Boolean(playing));
+  if (queueAt === "side") classes.push("queue-open");
+  const closeQueue = () => setQueueOpen(false);
+  const queuePanel = <QueuePanel player={player} onClose={closeQueue} onPlay={(video) => void playFromPanel(video)} />;
+  // Live and already-kept videos have nothing to download.
+  const canDownloadPlaying =
+    playing !== null &&
+    player.source.streaming &&
+    // Live is only certain once the lookup answered.
+    !player.source.loading &&
+    !player.source.error &&
+    !player.source.isLive &&
+    !downloadsByVideo.has(playing.id) &&
+    !libraryById.get(playing.id)?.file_path;
 
   return (
     <div className={classes.join(" ")}>
@@ -338,28 +352,32 @@ export default function App() {
                 if (view === "player") navigate(lastScreen);
               }}
               onReveal={() => void attempt(() => api.revealVideo(playing.id))}
+              onOpenExternally={() => void attempt(() => api.openVideoExternally(playing.id))}
               onCopyLink={() => copyLink(playing)}
-              onDownload={
-                player.source.streaming &&
-                // Live is only certain once the lookup answered.
-                !player.source.loading &&
-                !player.source.error &&
-                !player.source.isLive &&
-                !downloadsByVideo.has(playing.id) &&
-                !libraryById.get(playing.id)?.file_path
-                  ? () => void submitUrl(playing.url, null, false, true)
-                  : null
-              }
+              onDownload={canDownloadPlaying ? () => void submitUrl(playing.url, null, false, true) : null}
+              onChooseQuality={canDownloadPlaying ? () => void chooseQuality(playing.url, false, true) : null}
+              miniQueue={queueAt === "mini" ? queuePanel : null}
               onRetryStream={player.retryStream}
               onStreamFailed={player.streamFailed}
             />
           )}
         </main>
-        {queueOpen && (
-          <QueuePanel player={player} onClose={() => setQueueOpen(false)} onPlay={(video) => void playFromPanel(video)} />
-        )}
+        {queueAt === "side" && queuePanel}
       </div>
       <Toasts />
+      {picking && (
+        <QualityPicker
+          url={picking.url}
+          onPick={(format) => {
+            picking.resolve(format);
+            setPicking(null);
+          }}
+          onCancel={() => {
+            picking.resolve(null);
+            setPicking(null);
+          }}
+        />
+      )}
     </div>
   );
 }
